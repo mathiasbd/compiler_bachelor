@@ -818,9 +818,21 @@ def SW : Store_rri<0b010, "sw">, Sched<[WriteSTW, ReadStoreData, ReadMemBase]>;
 let isReMaterializable = 1, isAsCheapAsAMove = 1 in
 def ADDI  : ALU_ri<0b000, "addi">;
 
-let IsSignExtendingOpW = 1 in {
+// Old implementation
+/* let IsSignExtendingOpW = 1 in {
 def SLTI  : ALU_ri<0b010, "slti">;
 def SLTIU : ALU_ri<0b011, "sltiu">;
+} */
+
+// Defining pseudo commands
+let isPseudo = 1, isCodeGenOnly = 1, hasSideEffects = 0, mayLoad = 0, mayStore = 0 in {
+  def SLTI : Pseudo<(outs GPR:$rd), (ins GPR:$rs1, uimmlog2xlen:$imm), []>;
+  def SLTIU : Pseudo<(outs GPR:$rd), (ins GPR:$rs1, uimmlog2xlen:$imm), []>;
+}
+
+// Now set less than immediate instruction
+let IsSignExtendingOpW = 1 in {
+  def SLTHI  : ALU_ri<0b010, "slti">;
 }
 
 let isReMaterializable = 1, isAsCheapAsAMove = 1 in {
@@ -873,12 +885,26 @@ def SL : ALU_rr<0b0000000, 0b101, "sl">,
 def SR : ALU_rr<0b0100000, 0b101, "sr">,
           Sched<[WriteShiftReg, ReadShiftReg, ReadShiftReg]>;
 
-let IsSignExtendingOpW = 1 in {
+// Old implementation
+/* let IsSignExtendingOpW = 1 in {
 def SLT  : ALU_rr<0b0000000, 0b010, "slt">,
            Sched<[WriteIALU, ReadIALU, ReadIALU]>;
 def SLTU : ALU_rr<0b0000000, 0b011, "sltu">,
            Sched<[WriteIALU, ReadIALU, ReadIALU]>;
+} */
+
+// Defining pseudo commands
+let isPseudo = 1, isCodeGenOnly = 1, hasSideEffects = 0, mayLoad = 0, mayStore = 0 in {
+  def SLT : Pseudo<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2), []>;
+  def SLTU : Pseudo<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2), []>;
 }
+
+// New set less than instruction
+let IsSignExtendingOpW = 1 in {
+  def SLTH  : ALU_rr<0b0000000, 0b010, "slt">,
+             Sched<[WriteIALU, ReadIALU, ReadIALU]>;
+}
+
 def XOR  : ALU_rr<0b0000000, 0b100, "xor", Commutable=1>,
            Sched<[WriteIALU, ReadIALU, ReadIALU]>;
 def OR   : ALU_rr<0b0000000, 0b110, "or", Commutable=1>,
@@ -1737,10 +1763,10 @@ def : Pat<(riscv_add_lo GPR:$src, tglobaltlsaddr:$lo),
 
 /// Setcc
 
-def : PatGprGpr<setlt, SLT>;
-def : PatGprSimm12<setlt, SLTI>;
-def : PatGprGpr<setult, SLTU>;
-def : PatGprSimm12<setult, SLTIU>;
+def : PatGprGpr<setlt,  SLTH>;
+def : PatGprSimm12<setlt,  SLTHI>;
+def : PatGprGpr<setult, SLTH>;
+def : PatGprSimm12<setult, SLTHI>;
 
 // RISC-V doesn't have general instructions for integer setne/seteq, but we can
 // check for equality with 0. These ComplexPatterns rewrite the setne/seteq into
