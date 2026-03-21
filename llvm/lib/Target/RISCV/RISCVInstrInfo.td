@@ -158,6 +158,16 @@ def SDT_RISCVSetTag : SDTypeProfile<1, 2, [
 //Define the tagged node
 def riscv_set_tag : RVSDNode<"SET_TAG", SDT_RISCVSetTag>;
 
+// Define the tagged store node
+def SDT_RISCVTagStore : SDTypeProfile<0, 3, [
+  SDTCisPtrTy<0>, // Pointer (address)
+  SDTCisInt<1>,   // Operand 1 is integer (address offset)
+  SDTCisInt<2>    // Operand 2 is integer (value to store)
+]>;
+def riscv_tagstore : SDNode<"llvm::RISCVISD::TAGSTORE",
+                            SDT_RISCVTagStore,
+                            [SDNPHasChain, SDNPMayStore]>
+
 // Represents an AUIPC+ADDI pair. Selected to PseudoLLA.
 def riscv_lla : RVSDNode<"LLA", SDTIntUnaryOp>;
 

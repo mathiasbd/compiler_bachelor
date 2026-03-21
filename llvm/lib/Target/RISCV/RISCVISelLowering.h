@@ -26,6 +26,13 @@ class InstructionCost;
 class RISCVSubtarget;
 struct RISCVRegisterInfo;
 
+namespace RISCVISD {
+enum NodeType : unsigned {
+  FIRST_NUMBER = ISD::BUILTIN_OP_END,
+  TAGSTORE
+};
+}
+
 class RISCVTargetLowering : public TargetLowering {
   const RISCVSubtarget &Subtarget;
 
@@ -517,6 +524,7 @@ private:
 
   //Defining our lowering tag instruction
   SDValue lowerSetTag(SDValue Op, SelectionDAG &DAG, bool Signed) const;
+  SDValue lowerTagStore(SDValue Op, SelectionDAG &DAG) const;
 
   SDValue lowerVectorMaskTruncLike(SDValue Op, SelectionDAG &DAG) const;
   SDValue lowerVectorTruncLike(SDValue Op, SelectionDAG &DAG) const;
