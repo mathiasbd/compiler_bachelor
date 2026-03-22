@@ -75,6 +75,12 @@ def FeatureTaggedMemoryStores
                        "true",
                        "Use tagged scalar memory store lowering">;
 
+def NotTaggedStore
+    : Predicate<"!Subtarget.hasTaggedMemoryStores()">;
+
+def HasTaggedStorePred
+    : Predicate<"Subtarget.hasTaggedMemoryStores()">;
+
 // Integer Extensions
 
 def FeatureStdExtI

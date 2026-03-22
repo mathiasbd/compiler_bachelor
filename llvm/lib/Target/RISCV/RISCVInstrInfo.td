@@ -166,7 +166,7 @@ def SDT_RISCVTagStore : SDTypeProfile<0, 3, [
 ]>;
 def riscv_tagstore : SDNode<"llvm::RISCVISD::TAGSTORE",
                             SDT_RISCVTagStore,
-                            [SDNPHasChain, SDNPMayStore]>
+                            [SDNPHasChain, SDNPMayStore]>;
 
 // Represents an AUIPC+ADDI pair. Selected to PseudoLLA.
 def riscv_lla : RVSDNode<"LLA", SDTIntUnaryOp>;
@@ -819,20 +819,45 @@ def LBU : Load_ri<0b100, "lbu">, Sched<[WriteLDB, ReadMemBase]>;
 def LHU : Load_ri<0b101, "lhu">, Sched<[WriteLDH, ReadMemBase]>;
 }
 
-def SB : Store_rri<0b000, "sb">, Sched<[WriteSTB, ReadStoreData, ReadMemBase]>;
-def SH : Store_rri<0b001, "sh">, Sched<[WriteSTH, ReadStoreData, ReadMemBase]>;
-def SW : Store_rri<0b010, "sw">, Sched<[WriteSTW, ReadStoreData, ReadMemBase]>;
-
-def TAGSTORE : RVInstS<
-    0b000, OPC_CUSTOM_0,
-    (outs),
-    (ins GPR:$rs2, GPR:$rs1, simm12:$imm12),
-    "tstore", "$rs2, ${imm12}(${rs1})"
-> {
-  let mayStore = 1;
-  let hasSideEffects = 0;
+let Predicates = [NotTaggedStore] in {
+  def SB : Store_rri<0b000, "sb">,
+           Sched<[WriteSTB, ReadStoreData, ReadMemBase]>;
+  def SH : Store_rri<0b001, "sh">,
+           Sched<[WriteSTH, ReadStoreData, ReadMemBase]>;
+  def SW : Store_rri<0b010, "sw">,
+           Sched<[WriteSTW, ReadStoreData, ReadMemBase]>;
 }
 
+let Predicates = [HasTaggedStorePred], isPseudo = 1, isCodeGenOnly = 1,
+    mayStore = 1, mayLoad = 0, hasSideEffects = 0 in {
+  def SB_TAG_PSEUDO : Pseudo<
+    (outs),
+    (ins GPR:$rs2, GPR:$rs1, simm12_lo:$imm12),
+    []
+  >;
+
+  def SH_TAG_PSEUDO : Pseudo<
+    (outs),
+    (ins GPR:$rs2, GPR:$rs1, simm12_lo:$imm12),
+    []
+  >;
+
+  def SW_TAG_PSEUDO : Pseudo<
+    (outs),
+    (ins GPR:$rs2, GPR:$rs1, simm12_lo:$imm12),
+    []
+  >;
+}
+
+let Predicates = [HasTaggedStorePred], DecoderNamespace = "TaggedStore", mayStore = 1, mayLoad = 0,
+    hasSideEffects = 0 in {
+  def TAGSTORE : RVInstS<
+      0b000, OPC_STORE,
+      (outs),
+      (ins GPR:$rs2, GPR:$rs1, simm12_lo:$imm12),
+      "st", "$rs2, ${imm12}(${rs1})"
+  >;
+}
 // ADDI isn't always rematerializable, but isReMaterializable will be used as
 // a hint which is verified in isReMaterializableImpl.
 let isReMaterializable = 1, isAsCheapAsAMove = 1 in
@@ -2162,9 +2187,9 @@ class StPat<PatFrag StoreOp, RVInst Inst, RegisterClass StTy,
                    simm12_lo:$imm12)),
           (Inst StTy:$rs2, GPRMem:$rs1, simm12_lo:$imm12)>;
 
-def : StPat<truncstorei8, SB, GPR, XLenVT>;
-def : StPat<truncstorei16, SH, GPR, XLenVT>;
-def : StPat<store, SW, GPR, i32>, Requires<[IsRV32]>;
+def : StPat<truncstorei8, TAGSTORE, GPR, XLenVT>;
+def : StPat<truncstorei16, TAGSTORE, GPR, XLenVT>;
+def : StPat<store, TAGSTORE, GPR, i32>, Requires<[IsRV32]>;
 
 /// Fences
 
@@ -2412,7 +2437,7 @@ def : LdPat<load, LD, i64>;
 
 /// Stores
 
-def : StPat<truncstorei32, SW, GPR, i64>;
+def : StPat<truncstorei32, TAGSTORE, GPR, i64>;
 def : StPat<store, SD, GPR, i64>;
 } // Predicates = [IsRV64]
 

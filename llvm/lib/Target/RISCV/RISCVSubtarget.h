@@ -207,10 +207,6 @@ public:
     return HasStdExtZicond || HasVendorXVentanaCondOps;
   }
 
-  bool hasTaggedMemoryStores() const {
-    return HasTaggedMemoryStores;
-  }
-
   bool hasConditionalMoveFusion() const {
     // Do we support fusing a branch+mv or branch+c.mv as a conditional move.
     return (hasConditionalCompressedMoveFusion() && hasStdExtZca()) ||
