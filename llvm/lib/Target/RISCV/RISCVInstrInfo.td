@@ -828,27 +828,6 @@ let Predicates = [NotTaggedStore] in {
            Sched<[WriteSTW, ReadStoreData, ReadMemBase]>;
 }
 
-let Predicates = [HasTaggedStorePred], isPseudo = 1, isCodeGenOnly = 1,
-    mayStore = 1, mayLoad = 0, hasSideEffects = 0 in {
-  def SB_TAG_PSEUDO : Pseudo<
-    (outs),
-    (ins GPR:$rs2, GPR:$rs1, simm12_lo:$imm12),
-    []
-  >;
-
-  def SH_TAG_PSEUDO : Pseudo<
-    (outs),
-    (ins GPR:$rs2, GPR:$rs1, simm12_lo:$imm12),
-    []
-  >;
-
-  def SW_TAG_PSEUDO : Pseudo<
-    (outs),
-    (ins GPR:$rs2, GPR:$rs1, simm12_lo:$imm12),
-    []
-  >;
-}
-
 let Predicates = [HasTaggedStorePred], DecoderNamespace = "TaggedStore", mayStore = 1, mayLoad = 0,
     hasSideEffects = 0 in {
   def TAGSTORE : RVInstS<

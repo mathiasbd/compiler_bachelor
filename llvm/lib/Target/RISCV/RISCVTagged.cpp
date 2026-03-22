@@ -76,12 +76,6 @@ bool RISCVTagged::runOnMachineFunction(MachineFunction &MF) {
         MI.setDesc(TII->get(RISCV::SLTHI));
         MadeChange = true;
         break;
-      case RISCV::SB_TAG_PSEUDO:
-      case RISCV::SH_TAG_PSEUDO:
-      case RISCV::SW_TAG_PSEUDO:
-        MI.setDesc(TII->get(RISCV::TAGSTORE));
-        MadeChange = true;
-        break;
       default:
         break;
       }
