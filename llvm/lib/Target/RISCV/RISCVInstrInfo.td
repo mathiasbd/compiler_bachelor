@@ -823,6 +823,16 @@ def SB : Store_rri<0b000, "sb">, Sched<[WriteSTB, ReadStoreData, ReadMemBase]>;
 def SH : Store_rri<0b001, "sh">, Sched<[WriteSTH, ReadStoreData, ReadMemBase]>;
 def SW : Store_rri<0b010, "sw">, Sched<[WriteSTW, ReadStoreData, ReadMemBase]>;
 
+def TAGSTORE : RVInstS<
+    0b000, OPC_CUSTOM_0,
+    (outs),
+    (ins GPR:$rs2, GPR:$rs1, simm12:$imm12),
+    "tstore", "$rs2, ${imm12}(${rs1})"
+> {
+  let mayStore = 1;
+  let hasSideEffects = 0;
+}
+
 // ADDI isn't always rematerializable, but isReMaterializable will be used as
 // a hint which is verified in isReMaterializableImpl.
 let isReMaterializable = 1, isAsCheapAsAMove = 1 in

@@ -1112,6 +1112,21 @@ void RISCVDAGToDAGISel::Select(SDNode *Node) {
   bool HasBitTest = Subtarget->hasBEXTILike();
 
   switch (Opcode) {
+  case RISCVISD::TAGSTORE:
+    SDLoc DL(Node);
+
+    SDValue Chain = Node->getOperand(0);
+    SDValue BasePtr = Node->getOperand(1);
+    SDValue Value = Node->getOperand(2);
+
+    SDValue Base, Offset;
+    if (!SelectAddrFrameIndexOrImm12(BasePtr, Base, Offset))
+      break;
+    
+    MachineSDNode *MN = CurDAG->getMachineNode(RISCV::TAGSTORE, DL, MVT::Other, Value, Base, Offset, Chain);
+
+    replaceNode(Node, MN);
+    return; 
   case ISD::Constant: {
     assert(VT == Subtarget->getXLenVT() && "Unexpected VT");
     auto *ConstNode = cast<ConstantSDNode>(Node);
