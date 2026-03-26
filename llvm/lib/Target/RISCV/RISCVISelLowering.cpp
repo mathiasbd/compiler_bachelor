@@ -14139,6 +14139,7 @@ SDValue RISCVTargetLowering::lowerTagStore(SDValue Op,
 
   SDValue Chain = Store->getChain();
   SDValue BasePtr = Store->getBasePtr();
+  SDValue Offset = DAG.getTargetConstant(0, DL, Subtarget.getXLenVT());
   SDValue Value = Store->getValue();
 
   EVT MemVT = Store->getMemoryVT();
@@ -14153,7 +14154,7 @@ SDValue RISCVTargetLowering::lowerTagStore(SDValue Op,
 
   return DAG.getMemIntrinsicNode(
       RISCVISD::TAGSTORE, DL, DAG.getVTList(MVT::Other),
-      {Chain, BasePtr, Value}, MemVT, Store->getMemOperand());
+      {Chain, BasePtr, Offset, Value}, MemVT, Store->getMemOperand());
 }
 
 // Lower a VP_* ISD node to the corresponding RISCVISD::*_VL node:

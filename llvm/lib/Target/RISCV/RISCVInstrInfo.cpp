@@ -665,8 +665,12 @@ void RISCVInstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
 
   unsigned Opcode;
   if (RISCV::GPRRegClass.hasSubClassEq(RC)) {
-    Opcode = RegInfo.getRegSizeInBits(RISCV::GPRRegClass) == 32 ? RISCV::SW
-                                                                : RISCV::SD;
+    if (STI.hasTaggedMemoryStores())
+      Opcode = RISCV::TAGSTORE;
+    else
+      Opcode = RegInfo.getRegSizeInBits(RISCV::GPRRegClass) == 32
+                   ? RISCV::SW
+                   : RISCV::SD;
   } else if (RISCV::GPRF16RegClass.hasSubClassEq(RC)) {
     Opcode = RISCV::SH_INX;
   } else if (RISCV::GPRF32RegClass.hasSubClassEq(RC)) {

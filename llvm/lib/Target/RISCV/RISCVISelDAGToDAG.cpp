@@ -1124,15 +1124,24 @@ void RISCVDAGToDAGISel::Select(SDNode *Node) {
 
     SDValue Chain = Node->getOperand(0);
     SDValue BasePtr = Node->getOperand(1);
-    SDValue Value = Node->getOperand(2);
+    SDValue Offset = Node->getOperand(2);
+    SDValue Value = Node->getOperand(3);
 
-    SDValue Base, Offset;
-    if (!SelectAddrFrameIndex(BasePtr, Base, Offset)) {
+    // TAGSTORE carries an explicit offset operand. Fold non-zero offsets into
+    // the base pointer and let normal address selection recover FI+imm when
+    // possible.
+    if (auto *C = dyn_cast<ConstantSDNode>(Offset);
+        !C || C->getSExtValue() != 0)
+      BasePtr = CurDAG->getNode(ISD::ADD, DL, Subtarget->getXLenVT(), BasePtr,
+                                Offset);
+
+    SDValue Base, AddrOffset;
+    if (!SelectAddrFrameIndex(BasePtr, Base, AddrOffset)) {
       Base = BasePtr;
-      Offset = CurDAG->getTargetConstant(0, DL, Subtarget->getXLenVT());
+      AddrOffset = CurDAG->getTargetConstant(0, DL, Subtarget->getXLenVT());
     }
 
-    SDValue Ops[] = {Value, Base, Offset, Chain};
+    SDValue Ops[] = {Value, Base, AddrOffset, Chain};
     MachineSDNode *MN =
         CurDAG->getMachineNode(RISCV::TAGSTORE, DL, MVT::Other, Ops);
 

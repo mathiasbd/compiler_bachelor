@@ -17,20 +17,18 @@
 #include "llvm/Support/ErrorHandling.h"
 
 using namespace llvm;
-// #define DEBUG_TYPE "riscv-tagged-collapse"
+#define DEBUG_TYPE "riscv-tagged-load"
 // #define RISCV_TAGGED_NAME "RISC-V Tagged definitions"
 
-STATISTIC(NumDeadDefsReplaced, "Number of dead definitions replaced");
-
 namespace {
-enum class TagSignedNess : uint8_t {
+enum class TagSignedness : uint8_t {
   Unknown = 0,
   Signed = 1,
   Unsigned = 2,
 };
 
 struct RegTagState {
-  TagSignedNess SignedNess = TagSignedNess::Unknown;
+  TagSignedness SignedNess = TagSignedness::Unknown;
   unsigned WidthBits = 0;
   bool Valid = false;
 };
@@ -73,27 +71,27 @@ static unsigned getLoadWidthBits(const MachineInstr &MI) {
   }
 }
 
-static TagSignedNess classifyLoad(const MachineInstr &MI, unsigned &WidthBits) {
+static TagSignedness classifyLoad(const MachineInstr &MI, unsigned &WidthBits) {
   WidthBits = getLoadWidthBits(MI);
   if (WidthBits == 0)
-    return TagSignedNess::Unknown;
+    return TagSignedness::Unknown;
   if (isRISCVSignedLoad(MI))
-    return TagSignedNess::Signed;
+    return TagSignedness::Signed;
   if (isRISCVUnsignedLoad(MI))
-    return TagSignedNess::Unsigned;
-  return TagSignedNess::Unknown;
+    return TagSignedness::Unsigned;
+  return TagSignedness::Unknown;
 }
 
-static TagSignedNess classifyUseContext(const MachineInstr &MI) {
+static TagSignedness classifyUseContext(const MachineInstr &MI) {
   switch (MI.getOpcode()) {
   case RISCV::SLTU:
   case RISCV::SLTIU:
-    return TagSignedNess::Unsigned;
+    return TagSignedness::Unsigned;
   case RISCV::SLT:
   case RISCV::SLTI:
-    return TagSignedNess::Signed;
+    return TagSignedness::Signed;
   default:
-    return TagSignedNess::Unknown;
+    return TagSignedness::Unknown;
   }
 }
 
@@ -139,8 +137,9 @@ public:
   StringRef getPassName() const override;
 };
 
-bool RISCVSignTagged::runOnMachineFunction(MachineFunction &MF) override {
-  const TargetInstrInfo *TII = MF.getSubtarget().getInstrInfo();
+bool RISCVSignTagged::runOnMachineFunction(MachineFunction &MF) {
+  const auto &Subtarget = MF.getSubtarget<RISCVSubtarget>();
+  const RISCVInstrInfo *TII = Subtarget.getInstrInfo();
   if (!TII)
     return false;
 
@@ -150,8 +149,8 @@ bool RISCVSignTagged::runOnMachineFunction(MachineFunction &MF) override {
   for (MachineBasicBlock &MBB : MF) {
     for (MachineInstr &MI : MBB) {
       unsigned WidthBits = 0;
-      TagSignedNess LoadS = classifyLoad(MI, WidthBits);
-      if (LoadS != TagSignedNess::Unknown) {
+      TagSignedness LoadS = classifyLoad(MI, WidthBits);
+      if (LoadS != TagSignedness::Unknown) {
         if (MI.getNumOperands() > 0 && MI.getOperand(0).isReg()) {
           Register DstReg = MI.getOperand(0).getReg();
           if (DstReg.isValid()) {
@@ -164,8 +163,8 @@ bool RISCVSignTagged::runOnMachineFunction(MachineFunction &MF) override {
         continue;
       }
 
-      TagSignedNess UseS = classifyUseContext(MI);
-      if (UseS == TagSignedNess::Unknown)
+      TagSignedness UseS = classifyUseContext(MI);
+      if (UseS == TagSignedness::Unknown)
         continue;
 
       for (const MachineOperand &MO : MI.operands()) {
@@ -181,7 +180,7 @@ bool RISCVSignTagged::runOnMachineFunction(MachineFunction &MF) override {
           continue;
 
         RegTagState &S = It->second;
-        if (S.SignedNess == TagSignedNess::Unknown)
+        if (S.SignedNess == TagSignedness::Unknown)
           continue;
 
         if (S.SignedNess != UseS) {
@@ -201,7 +200,7 @@ bool RISCVSignTagged::runOnMachineFunction(MachineFunction &MF) override {
   return MadeChange;
 }
 
-StringRef RISCVSignTagged::getPassName() const override {
+StringRef RISCVSignTagged::getPassName() const {
   return "RISC-V Fix Load Tag Mismatch (per-register, pre-regalloc)";
 }
 } // end anonymous namespace
