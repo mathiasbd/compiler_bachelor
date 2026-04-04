@@ -806,10 +806,22 @@ def JALR : RVInstI<0b000, OPC_JALR, (outs GPR:$rd),
 
 def BEQ  : BranchCC_rri<0b000, "beq">;
 def BNE  : BranchCC_rri<0b001, "bne">;
+
+/*
 def BLT  : BranchCC_rri<0b100, "blt">;
 def BGE  : BranchCC_rri<0b101, "bge">;
 def BLTU : BranchCC_rri<0b110, "bltu">;
 def BGEU : BranchCC_rri<0b111, "bgeu">;
+*/
+
+// Defining pseudo commands
+let isPseudo = 1, isCodeGenOnly = 1, hasSideEffects = 0, mayLoad = 0, mayStore = 0 in {
+  def BLTU : Pseudo<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2), []>;
+  def BGEU : Pseudo<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2), []>;
+}
+//
+def BLT  : BranchCC_rri<0b100, "blt">;
+def BGE  : BranchCC_rri<0b101, "bge">;
 
 let IsSignExtendingOpW = 1, canFoldAsLoad = 1, isReMaterializable = 1 in {
 def LB  : Load_ri<0b000, "lb">, Sched<[WriteLDB, ReadMemBase]>;
@@ -878,7 +890,8 @@ def SLL  : ALU_rr<0b0000000, 0b001, "sll">,
 def SRL  : ALU_rr<0b0100000, 0b000, "srl">,
            Sched<[WriteShiftReg, ReadShiftReg, ReadShiftReg]>;
 def SRA  : ALU_rr<0b0100000, 0b101, "sra">,
-           Sched<[WriteShiftReg, ReadShiftReg, ReadShiftReg]>;*/
+           Sched<[WriteShiftReg, ReadShiftReg, ReadShiftReg]>;
+*/
 
 
 //Defining the pseudo commands
@@ -1242,9 +1255,9 @@ def : InstAlias<"bgt $rs, $rt, $offset",
 def : InstAlias<"ble $rs, $rt, $offset",
                 (BGE  GPR:$rt, GPR:$rs, bare_simm13_lsb0:$offset), 0>;
 def : InstAlias<"bgtu $rs, $rt, $offset",
-                (BLTU GPR:$rt, GPR:$rs, bare_simm13_lsb0:$offset), 0>;
+                (BLT GPR:$rt, GPR:$rs, bare_simm13_lsb0:$offset), 0>;
 def : InstAlias<"bleu $rs, $rt, $offset",
-                (BGEU GPR:$rt, GPR:$rs, bare_simm13_lsb0:$offset), 0>;
+                (BGE GPR:$rt, GPR:$rs, bare_simm13_lsb0:$offset), 0>;
 
 def : InstAlias<"j $offset",   (JAL X0, simm21_lsb0_jal:$offset)>;
 def : InstAlias<"jal $offset", (JAL X1, simm21_lsb0_jal:$offset)>;
@@ -1894,8 +1907,8 @@ defm : BccPat<SETEQ, BEQ>;
 defm : BccPat<SETNE, BNE>;
 defm : BccPat<SETLT, BLT>;
 defm : BccPat<SETGE, BGE>;
-defm : BccPat<SETULT, BLTU>;
-defm : BccPat<SETUGE, BGEU>;
+defm : BccPat<SETULT, BLT>;
+defm : BccPat<SETUGE, BGE>;
 
 let Predicates = [HasStdExtZca, OptForMinSize] in {
   def : BrccCompressOpt<SETEQ, BEQ>;
