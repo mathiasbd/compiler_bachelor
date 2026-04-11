@@ -1255,9 +1255,9 @@ def : InstAlias<"bgt $rs, $rt, $offset",
 def : InstAlias<"ble $rs, $rt, $offset",
                 (BGE  GPR:$rt, GPR:$rs, bare_simm13_lsb0:$offset), 0>;
 def : InstAlias<"bgtu $rs, $rt, $offset",
-                (BLT GPR:$rt, GPR:$rs, bare_simm13_lsb0:$offset), 0>;
+                (BLTU GPR:$rt, GPR:$rs, bare_simm13_lsb0:$offset), 0>;
 def : InstAlias<"bleu $rs, $rt, $offset",
-                (BGE GPR:$rt, GPR:$rs, bare_simm13_lsb0:$offset), 0>;
+                (BGEU GPR:$rt, GPR:$rs, bare_simm13_lsb0:$offset), 0>;
 
 def : InstAlias<"j $offset",   (JAL X0, simm21_lsb0_jal:$offset)>;
 def : InstAlias<"jal $offset", (JAL X1, simm21_lsb0_jal:$offset)>;
@@ -1365,7 +1365,7 @@ def : InstAlias<"sll $rd, $rs1, $shamt",
 def : InstAlias<"srl $rd, $rs1, $shamt",
                 (SRI  GPR:$rd, GPR:$rs1, uimmlog2xlen:$shamt)>;
 def : InstAlias<"sra $rd, $rs1, $shamt",
-                (SRI  GPR:$rd, GPR:$rs1, uimmlog2xlen:$shamt)>;
+                (SRAI  GPR:$rd, GPR:$rs1, uimmlog2xlen:$shamt)>;
 let Predicates = [IsRV64] in {
 def : InstAlias<"lwu $rd, (${rs1})",
                 (LWU  GPR:$rd, GPR:$rs1, 0)>;
