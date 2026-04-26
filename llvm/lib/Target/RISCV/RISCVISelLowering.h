@@ -523,8 +523,12 @@ private:
                              int64_t ExtTrueVal) const;
 
   //Defining our lowering tag instruction
-  SDValue lowerSetTag(SDValue Op, SelectionDAG &DAG, bool Signed) const;
+  SDValue lowerSetTag(SDValue Op, SelectionDAG &DAG, bool Signed, bool isSafetyCheck) const;
   SDValue lowerTagStore(SDValue Op, SelectionDAG &DAG) const;
+
+  SDValue performCastSignCombine(SDNode *N, TargetLowering::DAGCombinerInfo &DCI) const;
+  SDValue performCastUnsignCombine(SDNode *N, TargetLowering::DAGCombinerInfo &DCI) const;
+  SDValue performCastBRCCCombine(SDNode *N, TargetLowering::DAGCombinerInfo &DCI, bool WantSigned) const;
 
   SDValue lowerVectorMaskTruncLike(SDValue Op, SelectionDAG &DAG) const;
   SDValue lowerVectorTruncLike(SDValue Op, SelectionDAG &DAG) const;

@@ -149,14 +149,22 @@ def riscv_add_lo : RVSDNode<"ADD_LO", SDTIntBinOp>;
 // Get the Hi 20 bits from an address. Selected to LUI.
 def riscv_hi : RVSDNode<"HI", SDTIntUnaryOp>;
 
-//Define how the node is (1 output with two operands)
-def SDT_RISCVSetTag : SDTypeProfile<1, 2, [
+//Define how the node is (1 output with three operands)
+def SDT_RISCVSetTag : SDTypeProfile<1, 3, [
   SDTCisVT<0, XLenVT>,          // result is integer
-  SDTCisVT<1, XLenVT>,    // operand0 is integer
-  SDTCisVT<2, XLenVT>           // operand1 is XLenVT (i32 on RV32, i64 on RV64)
+  SDTCisVT<1, XLenVT>,          // operand0 is integer
+  SDTCisVT<2, XLenVT>,           // operand1 is XLenVT (i32 on RV32, i64 on RV64)
+  SDTCisVT<3, XLenVT>
 ]>;
 //Define the tagged node
 def riscv_set_tag : RVSDNode<"SET_TAG", SDT_RISCVSetTag>;
+
+def SDT_RISCVTaggedLWU : SDTypeProfile<1, 1, [
+  SDTCisVT<0, i32>,
+  SDTCisPtrTy<1>
+]>;
+
+def riscv_tagged_lwu : SDNode<"RISCVISD::TAGGED_LWU", SDT_RISCVTaggedLWU, [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
 
 // Define the tagged store node
 def SDT_RISCVTagStore : SDTypeProfile<0, 3, [
@@ -1022,42 +1030,68 @@ def CTSW : TagInst<0b0000110, "ctsw">;
 let isPseudo = 1, isCodeGenOnly = 1,
     hasSideEffects = 1, mayLoad = 0, mayStore = 0 in {
 
-  def PSEUDO_CTUB : Pseudo<(outs GPR:$rd), (ins GPR:$rs1), []>,
+  def PSEUDO_CTUB_EXT : Pseudo<(outs GPR:$rd), (ins GPR:$rs1), []>,
+                   PseudoInstExpansion<(CTUB GPR:$rd)> {
+    let Constraints = "$rd = $rs1";
+  }
+  def PSEUDO_CTUB_SAFETY : Pseudo<(outs GPR:$rd), (ins GPR:$rs1), []>,
                    PseudoInstExpansion<(CTUB GPR:$rd)> {
     let Constraints = "$rd = $rs1";
   }
 
-  def PSEUDO_CTUH : Pseudo<(outs GPR:$rd), (ins GPR:$rs1), []>,
+  def PSEUDO_CTUH_EXT : Pseudo<(outs GPR:$rd), (ins GPR:$rs1), []>,
+                   PseudoInstExpansion<(CTUH GPR:$rd)> {
+    let Constraints = "$rd = $rs1";
+  }
+  def PSEUDO_CTUH_SAFETY : Pseudo<(outs GPR:$rd), (ins GPR:$rs1), []>,
                    PseudoInstExpansion<(CTUH GPR:$rd)> {
     let Constraints = "$rd = $rs1";
   }
 
-  def PSEUDO_CTUW : Pseudo<(outs GPR:$rd), (ins GPR:$rs1), []>,
+  def PSEUDO_CTUW_EXT : Pseudo<(outs GPR:$rd), (ins GPR:$rs1), []>,
+                   PseudoInstExpansion<(CTUW GPR:$rd)> {
+    let Constraints = "$rd = $rs1";
+  }
+  def PSEUDO_CTUW_SAFETY : Pseudo<(outs GPR:$rd), (ins GPR:$rs1), []>,
                    PseudoInstExpansion<(CTUW GPR:$rd)> {
     let Constraints = "$rd = $rs1";
   }
 
-  def PSEUDO_CTSB : Pseudo<(outs GPR:$rd), (ins GPR:$rs1), []>,
+  def PSEUDO_CTSB_EXT : Pseudo<(outs GPR:$rd), (ins GPR:$rs1), []>,
+                   PseudoInstExpansion<(CTSB GPR:$rd)> {
+    let Constraints = "$rd = $rs1";
+  }
+  def PSEUDO_CTSB_SAFETY : Pseudo<(outs GPR:$rd), (ins GPR:$rs1), []>,
                    PseudoInstExpansion<(CTSB GPR:$rd)> {
     let Constraints = "$rd = $rs1";
   }
 
-  def PSEUDO_CTSH : Pseudo<(outs GPR:$rd), (ins GPR:$rs1), []>,
+  def PSEUDO_CTSH_EXT : Pseudo<(outs GPR:$rd), (ins GPR:$rs1), []>,
+                   PseudoInstExpansion<(CTSH GPR:$rd)> {
+    let Constraints = "$rd = $rs1";
+  }
+  def PSEUDO_CTSH_SAFETY : Pseudo<(outs GPR:$rd), (ins GPR:$rs1), []>,
                    PseudoInstExpansion<(CTSH GPR:$rd)> {
     let Constraints = "$rd = $rs1";
   }
 
-  def PSEUDO_CTSW : Pseudo<(outs GPR:$rd), (ins GPR:$rs1), []>,
+  def PSEUDO_CTSW_EXT : Pseudo<(outs GPR:$rd), (ins GPR:$rs1), []>,
+                   PseudoInstExpansion<(CTSW GPR:$rd)> {
+    let Constraints = "$rd = $rs1";
+  }
+  def PSEUDO_CTSW_SAFETY : Pseudo<(outs GPR:$rd), (ins GPR:$rs1), []>,
                    PseudoInstExpansion<(CTSW GPR:$rd)> {
     let Constraints = "$rd = $rs1";
   }
 }
 
+def LWU   : Load_ri<0b110, "lwu">, Sched<[WriteLDW, ReadMemBase]>;
+
 /// RV64I instructions
 
 let Predicates = [IsRV64] in {
 let canFoldAsLoad = 1, isReMaterializable = 1 in {
-def LWU   : Load_ri<0b110, "lwu">, Sched<[WriteLDW, ReadMemBase]>;
+//def LWU   : Load_ri<0b110, "lwu">, Sched<[WriteLDW, ReadMemBase]>;
 def LD    : Load_ri<0b011, "ld">, Sched<[WriteLDD, ReadMemBase]>;
 }
 def SD    : Store_rri<0b011, "sd">, Sched<[WriteSTD, ReadStoreData, ReadMemBase]>;
@@ -1255,9 +1289,9 @@ def : InstAlias<"bgt $rs, $rt, $offset",
 def : InstAlias<"ble $rs, $rt, $offset",
                 (BGE  GPR:$rt, GPR:$rs, bare_simm13_lsb0:$offset), 0>;
 def : InstAlias<"bgtu $rs, $rt, $offset",
-                (BLTU GPR:$rt, GPR:$rs, bare_simm13_lsb0:$offset), 0>;
+                (BLT GPR:$rt, GPR:$rs, bare_simm13_lsb0:$offset), 0>;
 def : InstAlias<"bleu $rs, $rt, $offset",
-                (BGEU GPR:$rt, GPR:$rs, bare_simm13_lsb0:$offset), 0>;
+                (BGE GPR:$rt, GPR:$rs, bare_simm13_lsb0:$offset), 0>;
 
 def : InstAlias<"j $offset",   (JAL X0, simm21_lsb0_jal:$offset)>;
 def : InstAlias<"jal $offset", (JAL X1, simm21_lsb0_jal:$offset)>;
@@ -1638,13 +1672,23 @@ def : PatGprUimmLog2XLen<sra, SRI>;
 
 
 //Our tag specific set tag pattern
-def : Pat<(riscv_set_tag GPR:$rs1, (XLenVT 0)), (PSEUDO_CTUB GPR:$rs1)>;
-def : Pat<(riscv_set_tag GPR:$rs1, (XLenVT 1)), (PSEUDO_CTUH GPR:$rs1)>;
-def : Pat<(riscv_set_tag GPR:$rs1, (XLenVT 2)), (PSEUDO_CTUW GPR:$rs1)>;
+def : Pat<(riscv_set_tag GPR:$rs1, (XLenVT 0), (XLenVT 0)), (PSEUDO_CTUB_EXT GPR:$rs1)>;
+def : Pat<(riscv_set_tag GPR:$rs1, (XLenVT 0), (XLenVT 1)), (PSEUDO_CTUB_SAFETY GPR:$rs1)>;
 
-def : Pat<(riscv_set_tag GPR:$rs1, (XLenVT 3)), (PSEUDO_CTSB GPR:$rs1)>;
-def : Pat<(riscv_set_tag GPR:$rs1, (XLenVT 4)), (PSEUDO_CTSH GPR:$rs1)>;
-def : Pat<(riscv_set_tag GPR:$rs1, (XLenVT 5)), (PSEUDO_CTSW GPR:$rs1)>;
+def : Pat<(riscv_set_tag GPR:$rs1, (XLenVT 1), (XLenVT 0)), (PSEUDO_CTUH_EXT GPR:$rs1)>;
+def : Pat<(riscv_set_tag GPR:$rs1, (XLenVT 1), (XLenVT 1)), (PSEUDO_CTUH_SAFETY GPR:$rs1)>;
+
+def : Pat<(riscv_set_tag GPR:$rs1, (XLenVT 2), (XLenVT 0)), (PSEUDO_CTUW_EXT GPR:$rs1)>;
+def : Pat<(riscv_set_tag GPR:$rs1, (XLenVT 2), (XLenVT 1)), (PSEUDO_CTUW_SAFETY GPR:$rs1)>;
+
+def : Pat<(riscv_set_tag GPR:$rs1, (XLenVT 3), (XLenVT 0)), (PSEUDO_CTSB_EXT GPR:$rs1)>;
+def : Pat<(riscv_set_tag GPR:$rs1, (XLenVT 3), (XLenVT 1)), (PSEUDO_CTSB_SAFETY GPR:$rs1)>;
+
+def : Pat<(riscv_set_tag GPR:$rs1, (XLenVT 4), (XLenVT 0)), (PSEUDO_CTSH_EXT GPR:$rs1)>;
+def : Pat<(riscv_set_tag GPR:$rs1, (XLenVT 4), (XLenVT 1)), (PSEUDO_CTSH_SAFETY GPR:$rs1)>;
+
+def : Pat<(riscv_set_tag GPR:$rs1, (XLenVT 5), (XLenVT 0)), (PSEUDO_CTSW_EXT GPR:$rs1)>;
+def : Pat<(riscv_set_tag GPR:$rs1, (XLenVT 5), (XLenVT 1)), (PSEUDO_CTSW_SAFETY GPR:$rs1)>;
 
 // Select 'or' as ADDI if the immediate bits are known to be 0 in $rs1. This
 // can improve compressibility.
@@ -2163,11 +2207,15 @@ class LdPat<PatFrag LoadOp, RVInst Inst, ValueType vt = XLenVT,
     : Pat<(vt (LoadOp (AddrRegImm (PtrVT GPRMem:$rs1), simm12_lo:$imm12))),
           (Inst GPRMem:$rs1, simm12_lo:$imm12)>;
 
+def tagged_lwu_load : PatFrag<(ops node:$addr),
+                              (riscv_tagged_lwu node:$addr)>;
+
 def : LdPat<sextloadi8, LB>;
 def : LdPat<extloadi8, LBU>; // Prefer unsigned due to no c.lb in Zcb.
 def : LdPat<sextloadi16, LH>;
 def : LdPat<extloadi16, LH>;
 def : LdPat<load, LW, i32>, Requires<[IsRV32]>;
+def : LdPat<tagged_lwu_load, LWU, i32>;
 def : LdPat<zextloadi8, LBU>;
 def : LdPat<zextloadi16, LHU>;
 

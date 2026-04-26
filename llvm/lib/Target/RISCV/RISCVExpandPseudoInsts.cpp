@@ -60,6 +60,9 @@ private:
                            MachineBasicBlock::iterator MBBI);
   bool expandPseudoReadVLENBViaVSETVLIX0(MachineBasicBlock &MBB,
                                          MachineBasicBlock::iterator MBBI);
+  bool expandToTaggedPseudo(MachineBasicBlock &MBB,
+                        MachineBasicBlock::iterator MBBI,
+                        unsigned RealOpc);
 #ifndef NDEBUG
   unsigned getInstSizeInBytes(const MachineFunction &MF) const {
     unsigned Size = 0;
@@ -192,9 +195,47 @@ bool RISCVExpandPseudo::expandMI(MachineBasicBlock &MBB,
     return expandVMSET_VMCLR(MBB, MBBI, RISCV::VMXNOR_MM);
   case RISCV::PseudoReadVLENBViaVSETVLIX0:
     return expandPseudoReadVLENBViaVSETVLIX0(MBB, MBBI);
-  }
 
+  case RISCV::SLTI:
+  case RISCV::SLTIU:
+    return expandToTaggedPseudo(MBB, MBBI, RISCV::SLTHI);
+
+  case RISCV::SLLI:
+    return expandToTaggedPseudo(MBB, MBBI, RISCV::SLI);
+
+  case RISCV::SRLI:
+  case RISCV::SRAI:
+    return expandToTaggedPseudo(MBB, MBBI, RISCV::SRI);
+
+  case RISCV::SLL:
+    return expandToTaggedPseudo(MBB, MBBI, RISCV::SL);
+
+  case RISCV::SRL:
+  case RISCV::SRA:
+    return expandToTaggedPseudo(MBB, MBBI, RISCV::SR);
+
+  case RISCV::SLT:
+  case RISCV::SLTU:
+    return expandToTaggedPseudo(MBB, MBBI, RISCV::SLTH);
+  }
   return false;
+}
+
+bool RISCVExpandPseudo::expandToTaggedPseudo(
+    MachineBasicBlock &MBB,
+    MachineBasicBlock::iterator MBBI,
+    unsigned RealOpc) {
+  MachineInstr &MI = *MBBI;
+  DebugLoc DL = MI.getDebugLoc();
+
+  MachineInstrBuilder MIB =
+      BuildMI(MBB, MBBI, DL, TII->get(RealOpc), MI.getOperand(0).getReg());
+
+  for (unsigned I = 1, E = MI.getNumOperands(); I != E; ++I)
+    MIB.add(MI.getOperand(I));
+
+  MI.eraseFromParent();
+  return true;
 }
 
 bool RISCVExpandPseudo::expandCCOp(MachineBasicBlock &MBB,

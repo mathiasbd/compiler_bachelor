@@ -1915,12 +1915,16 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
     setOperationAction(ISD::SIGN_EXTEND_INREG, MVT::i32, Custom);
     setOperationAction(ISD::SIGN_EXTEND_INREG, {MVT::i8, MVT::i16}, Custom);
 
-    // setOperationAction(ISD::TRUNCATE,    MVT::i16, Custom);
-    // setOperationAction(ISD::TRUNCATE,    MVT::i8,  Custom);
+    //setOperationAction(ISD::TRUNCATE,    MVT::i16, Custom);
+    //setOperationAction(ISD::TRUNCATE,    MVT::i8,  Custom);
+    //setOperationAction(ISD::TRUNCATE_SSAT_S, MVT::i8, Custom);
+    //setOperationAction(ISD::TRUNCATE_SSAT_S, MVT::i16, Custom);
+    //setOperationAction(ISD::TRUNCATE_USAT_U, MVT::i8, Custom);
+    //setOperationAction(ISD::TRUNCATE_USAT_U, MVT::i16, Custom);
 
     // Sometimes you’ll see ANY_EXTEND too.
-    setOperationAction(ISD::ANY_EXTEND, MVT::i32, Custom);
-    setOperationAction(ISD::ANY_EXTEND, MVT::i16, Custom);
+    //setOperationAction(ISD::ANY_EXTEND, MVT::i32, Custom);
+    //setOperationAction(ISD::ANY_EXTEND, MVT::i16, Custom);
   }
 
   // Function alignments.
@@ -1934,8 +1938,9 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
                        ISD::INTRINSIC_WO_CHAIN, ISD::ADD, ISD::SUB, ISD::MUL,
                        ISD::AND, ISD::OR, ISD::XOR, ISD::SETCC, ISD::SELECT});
   setTargetDAGCombine(ISD::SRA);
+  setTargetDAGCombine(ISD::SRL);
   setTargetDAGCombine(ISD::SIGN_EXTEND_INREG);
-
+  setTargetDAGCombine(ISD::LOAD);
   if (Subtarget.hasStdExtFOrZfinx())
     setTargetDAGCombine({ISD::FADD, ISD::FMAXNUM, ISD::FMINNUM, ISD::FMUL});
 
@@ -7939,7 +7944,7 @@ RISCVTargetLowering::lowerXAndesBfHCvtBFloat16Store(SDValue Op,
 }
 
 SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
-                                            SelectionDAG &DAG) const {
+                                            SelectionDAG &DAG) const { //For reference
   switch (Op.getOpcode()) {
   default:
     reportFatalInternalError(
@@ -8096,7 +8101,9 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
     if (Op.getSimpleValueType().isVector())
       return lowerVectorTruncLike(Op, DAG);
     if (Op.getValueType().isScalarInteger()) {
-      return lowerSetTag(Op, DAG, true);
+      //dbgs() << "TRUNCATE result VT: " << Op.getValueType() << "\n";
+      //dbgs() << "TRUNCATE src VT: " << Op.getOperand(0).getValueType() << "\n";
+      return lowerSetTag(Op.getOperand(0), DAG, false, false);
     }
     return SDValue();
   case ISD::ANY_EXTEND:
@@ -8107,7 +8114,7 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
     if (Op.getValueType().isScalableVector())
       return lowerToScalableOp(Op, DAG);
     if (Op.getValueType().isScalarInteger()) {
-      return lowerSetTag(Op, DAG, false);
+      return lowerSetTag(Op.getOperand(0), DAG, false, false);
     }
     return SDValue();
   case ISD::SIGN_EXTEND:
@@ -8117,12 +8124,12 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
     if (Op.getValueType().isScalableVector())
       return lowerToScalableOp(Op, DAG);
     if (Op.getValueType().isScalarInteger()) {
-      return lowerSetTag(Op, DAG, true);
+      return lowerSetTag(Op.getOperand(0), DAG, true, false);
     }
     return SDValue();
   case ISD::SIGN_EXTEND_INREG: {
     if (Op.getValueType().isScalarInteger()) {
-      return lowerSetTag(Op, DAG, true);
+      return lowerSetTag(Op.getOperand(0), DAG, true, false);
     }
     return SDValue();
   }
@@ -14116,20 +14123,20 @@ static unsigned getTagKind(bool Signed, unsigned WidthBits) {
 }
 
 // Lower to set tag specific instruction
-SDValue RISCVTargetLowering::lowerSetTag(SDValue Op, SelectionDAG &DAG,
-                                         bool Signed) const {
-  unsigned W = Op.getValueType().getSizeInBits();
+SDValue RISCVTargetLowering::lowerSetTag(SDValue V, SelectionDAG &DAG,
+                                         bool Signed, bool isSafetyCheck) const { //Reference
+  //dbgs() << "Inside lowersettag with: " << V.getOpcode() << " result: " << V.getValueType() << "\n";
+  unsigned W = V.getValueType().getSizeInBits();
   unsigned Kind = getTagKind(Signed, W);
   EVT XLenVT = Subtarget.getXLenVT();
-  SDLoc DL(Op);
+  SDLoc DL(V);
   SDValue K = DAG.getTargetConstant(Kind, DL, XLenVT);
+  SDValue Safety = DAG.getTargetConstant(isSafetyCheck ? 1 : 0, DL, XLenVT);
 
-  SDValue V = Op.getOperand(0);
   if (V.getValueType() != XLenVT) {
     V = DAG.getNode(ISD::ANY_EXTEND, DL, XLenVT, V);
   }
-
-  return DAG.getNode(RISCVISD::SET_TAG, DL, XLenVT, V, K);
+  return DAG.getNode(RISCVISD::SET_TAG, DL, XLenVT, V, K, Safety);
 }
 
 SDValue RISCVTargetLowering::lowerTagStore(SDValue Op,
@@ -21465,8 +21472,245 @@ static SDValue performSHLCombine(SDNode *N,
                      Passthru, Mask, VL);
 }
 
+static bool hasSignedTag(SDValue V) {
+  return V.getOpcode() == RISCVISD::SET_TAG &&
+         (int)V.getConstantOperandVal(1) >= 3;
+}
+
+SDValue RISCVTargetLowering::performCastSignCombine(SDNode *N, TargetLowering::DAGCombinerInfo &DCI) const {
+  SDValue Op(N,0);
+  EVT VT = Op.getValueType();
+  SDLoc DL(N);
+
+  if(Subtarget.is64Bit()) {
+    return SDValue();
+  }
+  if(Op.getOperand(0).getValueType() != MVT::i32) {
+    return SDValue();
+  }
+  if(Op.getOpcode() != ISD::SRA && Op.getOperand(1).getValueType() != MVT::i32) {
+    return SDValue();
+  }
+  
+  SDValue Src = Op.getOperand(0);
+  SDValue Src2 = Op.getOperand(1);
+  
+  auto RetagSigned = [&](SDValue V) -> SDValue {
+    if (isa<ConstantSDNode>(V.getNode()))
+      return V;
+
+    if (hasSignedTag(V))
+      return V;
+    return lowerSetTag(V, DCI.DAG, true, true);
+  };
+
+  switch (N->getOpcode()) {
+  case ISD::SRA:
+    if (hasSignedTag(Src))
+      return SDValue();
+
+    return DCI.DAG.getNode(ISD::SRA, DL, VT,
+                           RetagSigned(Src), Src2);
+
+  case ISD::SETCC: {
+    SDValue NewSrc = RetagSigned(Src);
+    SDValue NewSrc2 = RetagSigned(Src2);
+
+    if (NewSrc == Src && NewSrc2 == Src2)
+      return SDValue();
+
+    return DCI.DAG.getNode(ISD::SETCC, DL, VT,
+                           NewSrc, NewSrc2, N->getOperand(2));
+  }
+
+  default:
+    return SDValue();
+  }
+}
+
+static bool hasUnsignedTag(SDValue V) {
+  return V.getOpcode() == RISCVISD::SET_TAG &&
+         (int)V.getConstantOperandVal(1) < 3;
+}
+
+SDValue RISCVTargetLowering::performCastUnsignCombine(
+    SDNode *N, TargetLowering::DAGCombinerInfo &DCI) const {
+
+  SDValue Op(N, 0);
+  EVT VT = Op.getValueType();
+  SDLoc DL(N);
+
+  if (Subtarget.is64Bit())
+    return SDValue();
+
+  if (Op.getOperand(0).getValueType() != MVT::i32)
+    return SDValue();
+
+  if (Op.getOpcode() != ISD::SRL &&
+      Op.getOperand(1).getValueType() != MVT::i32)
+    return SDValue();
+
+  SDValue Src = Op.getOperand(0);
+  SDValue Src2 = Op.getOperand(1);
+
+  auto RetagUnsigned = [&](SDValue V) -> SDValue {
+    if (isa<ConstantSDNode>(V.getNode()))
+      return V;
+
+    if (hasUnsignedTag(V))
+      return V;
+    return lowerSetTag(V, DCI.DAG, false, true);
+  };
+
+  switch (N->getOpcode()) {
+  case ISD::SRL:
+    if (hasUnsignedTag(Src))
+      return SDValue();
+
+    return DCI.DAG.getNode(ISD::SRL, DL, VT,
+                           RetagUnsigned(Src), Src2);
+
+  case ISD::SETCC: {
+    SDValue NewSrc = RetagUnsigned(Src);
+    SDValue NewSrc2 = RetagUnsigned(Src2);
+
+    if (NewSrc == Src && NewSrc2 == Src2)
+      return SDValue();
+
+    return DCI.DAG.getNode(ISD::SETCC, DL, VT,
+                           NewSrc, NewSrc2, N->getOperand(2));
+  }
+
+  default:
+    return SDValue();
+  }
+}
+
+SDValue RISCVTargetLowering::performCastBRCCCombine(SDNode *N, TargetLowering::DAGCombinerInfo &DCI, bool WantSigned) const {
+  SelectionDAG &DAG = DCI.DAG;
+  SDLoc DL(N);
+
+  if (Subtarget.is64Bit())
+    return SDValue();
+
+  SDValue Chain = N->getOperand(0);
+  SDValue LHS   = N->getOperand(1);
+  SDValue RHS   = N->getOperand(2);
+  SDValue CC    = N->getOperand(3);
+  SDValue Dest  = N->getOperand(4);
+
+  if (LHS.getValueType() != MVT::i32 || RHS.getValueType() != MVT::i32)
+    return SDValue();
+
+  auto Retag = [&](SDValue V) -> SDValue {
+    if (isa<ConstantSDNode>(V.getNode()))
+      return V;
+
+    if (WantSigned) {
+      if (hasSignedTag(V))
+        return V;
+      return lowerSetTag(V, DAG, true, true);
+    }
+
+    if (hasUnsignedTag(V))
+      return V;
+    return lowerSetTag(V, DAG, false, true);
+  };
+
+  SDValue NewLHS = Retag(LHS);
+  SDValue NewRHS = Retag(RHS);
+
+  if (NewLHS == LHS && NewRHS == RHS)
+    return SDValue();
+
+  return DAG.getNode(RISCVISD::BR_CC, DL, N->getValueType(0),
+                     Chain, NewLHS, NewRHS, CC, Dest);
+}
+
+static bool isUnsignedUser(SDNode *User) {
+  switch (User->getOpcode()) {
+    case ISD::SETCC: {
+      auto *CC = dyn_cast<CondCodeSDNode>(User->getOperand(2));
+      return CC && ISD::isUnsignedIntSetCC(CC->get());
+    }
+    case ISD::SRL:
+      return true;
+    default:
+      return false;
+    }
+}
+
+static bool isSignedUser(SDNode *User) {
+  switch (User->getOpcode()) {
+  case ISD::SETCC: {
+    auto *CC = dyn_cast<CondCodeSDNode>(User->getOperand(2));
+    return CC && ISD::isSignedIntSetCC(CC->get());
+  }
+  case ISD::SRA:
+    return true;
+  default:
+    return false;
+  }
+}
+
+static bool isTransparentUser(SDNode *User) {
+  dbgs() << "Inside isTransparentUser with: " << User->getOpcode() << "\n";
+  switch (User->getOpcode()) {
+  case ISD::ADD:
+  case ISD::SUB:
+  case ISD::AND:
+  case ISD::OR:
+  case ISD::XOR:
+  case ISD::SHL:
+  case RISCVISD::SET_TAG:
+    return true;
+  default:
+    return false;
+  }
+}
+
+static bool classifyLoadUses(LoadSDNode *LD) {
+  bool SeenUnsigned = false;
+
+  for (SDUse &U : LD->uses()) {
+    if (U.getResNo() != 0)
+      continue;
+
+    SDNode *User = U.getUser();
+
+    if (isSignedUser(User))
+      return false;
+
+    if (isUnsignedUser(User)) {
+      SeenUnsigned = true;
+      continue;
+    }
+
+    if (isTransparentUser(User)) {
+      for (SDUse &UU : User->uses()) {
+        if (UU.getResNo() != 0)
+          continue;
+
+        SDNode *User2 = UU.getUser();
+
+        if (isSignedUser(User2))
+          return false;
+
+        if (isUnsignedUser(User2))
+          SeenUnsigned = true;
+        else
+          return false;
+      }
+    } else {
+      return false;
+    }
+  }
+
+  return SeenUnsigned;
+}
+
 SDValue RISCVTargetLowering::PerformDAGCombine(SDNode *N,
-                                               DAGCombinerInfo &DCI) const {
+                                               DAGCombinerInfo &DCI) const { //For reference
   SelectionDAG &DAG = DCI.DAG;
   const MVT XLenVT = Subtarget.getXLenVT();
   SDLoc DL(N);
@@ -21827,8 +22071,19 @@ SDValue RISCVTargetLowering::PerformDAGCombine(SDNode *N,
     SDValue Fneg = DAG.getNode(ISD::FNEG, DL, VT, Splat);
     return DAG.getNode(ISD::FMA, DL, VT, Fneg, N1, N->getOperand(2));
   }
-  case ISD::SETCC:
+  case ISD::SETCC: {
+    auto *CC = dyn_cast<CondCodeSDNode>(N->getOperand(2));
+    if (!CC)
+      return SDValue();
+
+    if (ISD::isSignedIntSetCC(CC->get()))
+      return performCastSignCombine(N, DCI);
+
+    if (ISD::isUnsignedIntSetCC(CC->get()))
+      return performCastUnsignCombine(N, DCI);
+
     return performSETCCCombine(N, DCI, Subtarget);
+  }
   case ISD::SIGN_EXTEND_INREG:
     return performSIGN_EXTEND_INREGCombine(N, DCI, Subtarget);
   case ISD::ZERO_EXTEND:
@@ -22045,6 +22300,16 @@ SDValue RISCVTargetLowering::PerformDAGCombine(SDNode *N,
     if (combine_CC(LHS, RHS, CC, DL, DAG, Subtarget))
       return DAG.getNode(RISCVISD::BR_CC, DL, N->getValueType(0),
                          N->getOperand(0), LHS, RHS, CC, N->getOperand(4));
+
+    auto *CCNode = dyn_cast<CondCodeSDNode>(CC);
+    if (!CCNode)
+      return SDValue();
+
+    if (ISD::isSignedIntSetCC(CCNode->get()))
+      return performCastBRCCCombine(N, DCI, true);
+
+    if (ISD::isUnsignedIntSetCC(CCNode->get()))
+      return performCastBRCCCombine(N, DCI, false);
 
     return SDValue();
   }
@@ -22283,11 +22548,20 @@ SDValue RISCVTargetLowering::PerformDAGCombine(SDNode *N,
     }
     break;
   }
-  case ISD::SRA:
+  case ISD::SRA: {
+    if(SDValue V = performCastSignCombine(N, DCI))
+      return V;
     if (SDValue V = performSRACombine(N, DAG, Subtarget))
       return V;
     [[fallthrough]];
-  case ISD::SRL:
+  }
+  case ISD::SRL: {
+    if(N->getOpcode() == ISD::SRL) {
+      if(SDValue V = performCastUnsignCombine(N, DCI))
+        return V;
+    }
+    [[fallthrough]];
+  }
   case ISD::SHL: {
     if (N->getOpcode() == ISD::SHL) {
       if (SDValue V = performSHLCombine(N, DCI, Subtarget))
@@ -22339,7 +22613,33 @@ SDValue RISCVTargetLowering::PerformDAGCombine(SDNode *N,
   case RISCVISD::VFWADD_W_VL:
   case RISCVISD::VFWSUB_W_VL:
     return combineOp_VLToVWOp_VL(N, DCI, Subtarget);
-  case ISD::LOAD:
+  case ISD::LOAD: {
+    auto *LD = cast<LoadSDNode>(N);
+
+    if (LD->getExtensionType() != ISD::NON_EXTLOAD ||
+        LD->getMemoryVT() != MVT::i32 ||
+        LD->getValueType(0) != MVT::i32)
+      return SDValue();
+
+    auto ExtType = classifyLoadUses(LD);
+    if (!ExtType)
+      return SDValue(); // keep normal LOAD -> LW
+
+    SDVTList VTs = DAG.getVTList(MVT::i32, MVT::Other);
+
+    SDValue Ops[] = {
+      LD->getChain(),
+      LD->getBasePtr()
+    };
+
+    return DAG.getMemIntrinsicNode(
+        RISCVISD::TAGGED_LWU,
+        SDLoc(LD),
+        VTs,
+        Ops,
+        LD->getMemoryVT(),
+        LD->getMemOperand());
+  }
   case ISD::STORE: {
     if (DCI.isAfterLegalizeDAG())
       if (SDValue V = performMemPairCombine(N, DCI))
