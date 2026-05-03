@@ -600,6 +600,10 @@ void RISCVPassConfig::addPreEmitPass2() {
   // progress in the LR/SC block.
   addPass(createRISCVExpandAtomicPseudoPass());
 
+  // Replace scalar stores after pseudo expansion so the pass sees the final
+  // sw/sh/sb stream, including stores introduced by late lowering.
+  addPass(createRISCVReplaceStoresPass());
+
   // KCFI indirect call checks are lowered to a bundle.
   addPass(createUnpackMachineBundles([&](const MachineFunction &MF) {
     return MF.getFunction().getParent()->getModuleFlag("kcfi");
@@ -626,7 +630,6 @@ void RISCVPassConfig::addMachineSSAOptimization() {
 }
 
 void RISCVPassConfig::addPreRegAlloc() {
-  addPass(createRISCVTaggedPass());
   addPass(createRISCVPreRAExpandPseudoPass());
   if (TM->getOptLevel() != CodeGenOptLevel::None) {
     addPass(createRISCVMergeBaseOffsetOptPass());
@@ -642,6 +645,7 @@ void RISCVPassConfig::addPreRegAlloc() {
     addPass(&MachinePipelinerID);
 
   addPass(createRISCVVMV0EliminationPass());
+  addPass(createRISCVTaggedPass());
 }
 
 void RISCVPassConfig::addFastRegAlloc() {

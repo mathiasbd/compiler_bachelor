@@ -14,17 +14,9 @@ using namespace llvm;
 
 namespace {
 
-enum class ExtKind {
-  Signed,
-  Unsigned,
-  Unknown
-};
+enum class ExtKind { Signed, Unsigned, Unknown };
 
-enum class ExtSize {
-  Byte,
-  Halfword,
-  Word
-};
+enum class ExtSize { Byte, Halfword, Word };
 
 class RISCVTagged : public MachineFunctionPass {
 public:
@@ -35,8 +27,8 @@ public:
   StringRef getPassName() const override { return RISCV_TAGGED_NAME; }
 
 private:
-  std::pair<ExtKind, ExtSize>
-  classifyDef(Register R, const MachineRegisterInfo &MRI) const;
+  std::pair<ExtKind, ExtSize> classifyDef(Register R,
+                                          const MachineRegisterInfo &MRI) const;
 };
 
 } // end anonymous namespace
@@ -93,30 +85,36 @@ RISCVTagged::classifyDef(Register R, const MachineRegisterInfo &MRI) const {
 static unsigned getInstruction(std::pair<ExtKind, ExtSize> K) {
   if (K.first == ExtKind::Signed) {
     switch (K.second) {
-    case ExtSize::Byte:     return RISCV::PSEUDO_CTSB_SAFETY;
-    case ExtSize::Halfword: return RISCV::PSEUDO_CTSH_SAFETY;
-    case ExtSize::Word:     return RISCV::PSEUDO_CTSW_SAFETY;
+    case ExtSize::Byte:
+      return RISCV::PSEUDO_CTSB_SAFETY;
+    case ExtSize::Halfword:
+      return RISCV::PSEUDO_CTSH_SAFETY;
+    case ExtSize::Word:
+      return RISCV::PSEUDO_CTSW_SAFETY;
     }
   } else if (K.first == ExtKind::Unsigned) {
     switch (K.second) {
-    case ExtSize::Byte:     return RISCV::PSEUDO_CTUB_SAFETY;
-    case ExtSize::Halfword: return RISCV::PSEUDO_CTUH_SAFETY;
-    case ExtSize::Word:     return RISCV::PSEUDO_CTUW_SAFETY;
+    case ExtSize::Byte:
+      return RISCV::PSEUDO_CTUB_SAFETY;
+    case ExtSize::Halfword:
+      return RISCV::PSEUDO_CTUH_SAFETY;
+    case ExtSize::Word:
+      return RISCV::PSEUDO_CTUW_SAFETY;
     }
   }
   llvm_unreachable("Unhandled ExtKind/ExtSize");
 }
 
 bool RISCVTagged::runOnMachineFunction(MachineFunction &MF) {
-  //dbgs() << "Called the RISCVTagged machine function" << "\n";
+  // dbgs() << "Called the RISCVTagged machine function" << "\n";
   bool MadeChange = false;
   MachineRegisterInfo &MRI = MF.getRegInfo();
-  //const TargetInstrInfo *TII = MF.getSubtarget().getInstrInfo();
-  
+  // const TargetInstrInfo *TII = MF.getSubtarget().getInstrInfo();
+
   for (MachineBasicBlock &MBB : MF) {
-    for (auto MII = MBB.begin(), MIE = MBB.end(); MII != MIE; ) {
+    for (auto MII = MBB.begin(), MIE = MBB.end(); MII != MIE;) {
       MachineInstr &MI = *MII++;
-      
+
       switch (MI.getOpcode()) {
       case RISCV::PSEUDO_CTUW_SAFETY:
       case RISCV::PSEUDO_CTSW_SAFETY: {
@@ -128,14 +126,17 @@ bool RISCVTagged::runOnMachineFunction(MachineFunction &MF) {
         auto K = classifyDef(Src, MRI);
         if (K.first != ExtKind::Unknown) {
           dbgs() << "Inside first if statement \n";
-          if((MI.getOpcode() == RISCV::PSEUDO_CTUW_SAFETY && K.first == ExtKind::Unsigned) || (MI.getOpcode() == RISCV::PSEUDO_CTSW_SAFETY && K.first == ExtKind::Signed)) {
+          if ((MI.getOpcode() == RISCV::PSEUDO_CTUW_SAFETY &&
+               K.first == ExtKind::Unsigned) ||
+              (MI.getOpcode() == RISCV::PSEUDO_CTSW_SAFETY &&
+               K.first == ExtKind::Signed)) {
             dbgs() << "Inside the next \n";
             Register Dst = MI.getOperand(0).getReg();
             Register Src = MI.getOperand(1).getReg();
 
             if (Dst != Src)
               MRI.replaceRegWith(Dst, Src);
-            
+
             if (Src.isVirtual())
               MRI.clearKillFlags(Src);
             MI.eraseFromParent();

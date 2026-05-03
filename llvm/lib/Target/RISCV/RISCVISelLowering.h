@@ -29,7 +29,6 @@ struct RISCVRegisterInfo;
 namespace RISCVISD {
 enum NodeType : unsigned {
   FIRST_NUMBER = ISD::BUILTIN_OP_END,
-  TAGSTORE
 };
 }
 
@@ -524,7 +523,6 @@ private:
 
   //Defining our lowering tag instruction
   SDValue lowerSetTag(SDValue Op, SelectionDAG &DAG, bool Signed, bool isSafetyCheck) const;
-  SDValue lowerTagStore(SDValue Op, SelectionDAG &DAG) const;
 
   SDValue performCastSignCombine(SDNode *N, TargetLowering::DAGCombinerInfo &DCI) const;
   SDValue performCastUnsignCombine(SDNode *N, TargetLowering::DAGCombinerInfo &DCI) const;

@@ -558,13 +558,13 @@ DecodeStatus RISCVDisassembler::getInstruction32(MCInst &MI, uint64_t &Size,
 
   uint32_t Insn = support::endian::read32le(Bytes.data());
 
-  if (STI.hasFeature(RISCV::FeatureTaggedMemoryStores)) {
-    DecodeStatus Result = decodeInstruction(DecoderTableTaggedStore32, MI, Insn, Address,
-                                  this, STI);
-    if (Result != MCDisassembler::Fail)
-      return Result;
-    MI.clear();
-  }
+  // if (STI.hasFeature(RISCV::FeatureTaggedMemoryStores)) {
+  //   DecodeStatus Result = decodeInstruction(DecoderTableTaggedStore32, MI, Insn, Address,
+  //                                 this, STI);
+  //   if (Result != MCDisassembler::Fail)
+  //     return Result;
+  //   MI.clear();
+  // }
 
   for (const DecoderListEntry &Entry : DecoderList32) {
     if (!Entry.haveContainedFeatures(STI.getFeatureBits()))
