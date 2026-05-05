@@ -166,16 +166,6 @@ def SDT_RISCVTaggedLWU : SDTypeProfile<1, 1, [
 
 def riscv_tagged_lwu : SDNode<"RISCVISD::TAGGED_LWU", SDT_RISCVTaggedLWU, [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
 
-// Define the tagged store node
-def SDT_RISCVTagStore : SDTypeProfile<0, 3, [
-  SDTCisPtrTy<0>, // Pointer (address)
-  SDTCisInt<1>,   // Operand 1 is integer (address offset)
-  SDTCisInt<2>    // Operand 2 is integer (value to store)
-]>;
-def riscv_tagstore : SDNode<"llvm::RISCVISD::TAGSTORE",
-                            SDT_RISCVTagStore,
-                            [SDNPHasChain, SDNPMayStore]>;
-
 // Represents an AUIPC+ADDI pair. Selected to PseudoLLA.
 def riscv_lla : RVSDNode<"LLA", SDTIntUnaryOp>;
 
@@ -839,24 +829,22 @@ def LBU : Load_ri<0b100, "lbu">, Sched<[WriteLDB, ReadMemBase]>;
 def LHU : Load_ri<0b101, "lhu">, Sched<[WriteLDH, ReadMemBase]>;
 }
 
-let Predicates = [NotTaggedStore] in {
-  def SB : Store_rri<0b000, "sb">,
+def SB : Store_rri<0b000, "sb">,
            Sched<[WriteSTB, ReadStoreData, ReadMemBase]>;
-  def SH : Store_rri<0b001, "sh">,
+def SH : Store_rri<0b001, "sh">,
            Sched<[WriteSTH, ReadStoreData, ReadMemBase]>;
-  def SW : Store_rri<0b010, "sw">,
+def SW : Store_rri<0b010, "sw">,
            Sched<[WriteSTW, ReadStoreData, ReadMemBase]>;
-}
 
-let Predicates = [HasTaggedStorePred], DecoderNamespace = "TaggedStore", mayStore = 1, mayLoad = 0,
-    hasSideEffects = 0 in {
-  def TAGSTORE : RVInstS<
-      0b000, OPC_STORE,
-      (outs),
-      (ins GPR:$rs2, GPR:$rs1, simm12_lo:$imm12),
-      "st", "$rs2, ${imm12}(${rs1})"
-  >;
-}
+// let mayStore = 1, mayLoad = 0,
+//     hasSideEffects = 0 in {
+//   def TAGSTORE : RVInstS<
+//       0b111, OPC_STORE,
+//       (outs),
+//       (ins GPR:$rs2, GPR:$rs1, simm12_lo:$imm12),
+//       "st", "$rs2, ${imm12}(${rs1})"
+//   >;
+// }
 // ADDI isn't always rematerializable, but isReMaterializable will be used as
 // a hint which is verified in isReMaterializableImpl.
 let isReMaterializable = 1, isAsCheapAsAMove = 1 in
@@ -2227,9 +2215,9 @@ class StPat<PatFrag StoreOp, RVInst Inst, RegisterClass StTy,
                    simm12_lo:$imm12)),
           (Inst StTy:$rs2, GPRMem:$rs1, simm12_lo:$imm12)>;
 
-def : StPat<truncstorei8, TAGSTORE, GPR, XLenVT>;
-def : StPat<truncstorei16, TAGSTORE, GPR, XLenVT>;
-def : StPat<store, TAGSTORE, GPR, i32>, Requires<[IsRV32]>;
+def : StPat<truncstorei8, SB, GPR, XLenVT>;
+def : StPat<truncstorei16, SH, GPR, XLenVT>;
+def : StPat<store, SW, GPR, i32>, Requires<[IsRV32]>;
 
 /// Fences
 
@@ -2477,7 +2465,7 @@ def : LdPat<load, LD, i64>;
 
 /// Stores
 
-def : StPat<truncstorei32, TAGSTORE, GPR, i64>;
+def : StPat<truncstorei32, SW, GPR, i64>;
 def : StPat<store, SD, GPR, i64>;
 } // Predicates = [IsRV64]
 

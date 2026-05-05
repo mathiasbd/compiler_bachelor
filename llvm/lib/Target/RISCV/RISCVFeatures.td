@@ -68,19 +68,6 @@ class RISCVExperimentalExtension<int major, int minor, string desc,
   let Experimental = true;
 }
 
-// Tagged Extensions
-def FeatureTaggedMemoryStores
-    : SubtargetFeature<"tagged-mem-stores",
-                       "HasTaggedMemoryStores",
-                       "true",
-                       "Use tagged scalar memory store lowering">;
-
-def NotTaggedStore
-    : Predicate<"!Subtarget.hasTaggedMemoryStores()">;
-
-def HasTaggedStorePred
-    : Predicate<"Subtarget.hasTaggedMemoryStores()">;
-
 // Integer Extensions
 
 def FeatureStdExtI
