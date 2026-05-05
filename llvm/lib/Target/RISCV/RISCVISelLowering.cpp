@@ -315,17 +315,6 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
   // TODO: add all necessary setOperationAction calls.
   setOperationAction(ISD::DYNAMIC_STACKALLOC, XLenVT, Custom);
 
-  // set actions for stores
-  if (Subtarget.hasTaggedMemoryStores()) {
-    setOperationAction(ISD::STORE, MVT::i8, Custom);
-    setOperationAction(ISD::STORE, MVT::i16, Custom);
-    setOperationAction(ISD::STORE, MVT::i32, Custom);
-
-    setTruncStoreAction(MVT::i16, MVT::i8, Custom);
-    setTruncStoreAction(MVT::i32, MVT::i8, Custom);
-    setTruncStoreAction(MVT::i32, MVT::i16, Custom);
-  }
-
   setOperationAction(ISD::BR_JT, MVT::Other, Expand);
   setOperationAction(ISD::BR_CC, XLenVT, Expand);
   setOperationAction(ISD::BRCOND, MVT::Other, Custom);
@@ -8829,11 +8818,6 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
       return Ret;
     }
 
-    // tagged store lowering
-    if (Subtarget.hasTaggedMemoryStores() &&
-        Store->getMemoryVT().isScalarInteger())
-      return lowerTagStore(Op, DAG);
-
     if (auto V = expandUnalignedRVVStore(Op, DAG))
       return V;
     if (Op.getOperand(1).getValueType().isFixedLengthVector())
@@ -14137,31 +14121,6 @@ SDValue RISCVTargetLowering::lowerSetTag(SDValue V, SelectionDAG &DAG,
     V = DAG.getNode(ISD::ANY_EXTEND, DL, XLenVT, V);
   }
   return DAG.getNode(RISCVISD::SET_TAG, DL, XLenVT, V, K, Safety);
-}
-
-SDValue RISCVTargetLowering::lowerTagStore(SDValue Op,
-                                           SelectionDAG &DAG) const {
-  SDLoc DL(Op);
-  auto *Store = cast<StoreSDNode>(Op);
-
-  SDValue Chain = Store->getChain();
-  SDValue BasePtr = Store->getBasePtr();
-  SDValue Offset = DAG.getTargetConstant(0, DL, Subtarget.getXLenVT());
-  SDValue Value = Store->getValue();
-
-  EVT MemVT = Store->getMemoryVT();
-  MVT XLenVT = Subtarget.getXLenVT();
-
-  // Only handle integer stores
-  if (!MemVT.isScalarInteger())
-    return SDValue();
-
-  if (Value.getValueType() != XLenVT)
-    Value = DAG.getNode(ISD::ANY_EXTEND, DL, XLenVT, Value);
-
-  return DAG.getMemIntrinsicNode(
-      RISCVISD::TAGSTORE, DL, DAG.getVTList(MVT::Other),
-      {Chain, BasePtr, Offset, Value}, MemVT, Store->getMemOperand());
 }
 
 // Lower a VP_* ISD node to the corresponding RISCVISD::*_VL node:

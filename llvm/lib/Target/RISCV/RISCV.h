@@ -53,6 +53,9 @@ FunctionPass *createRISCVISelDag(RISCVTargetMachine &TM,
 FunctionPass *createRISCVTaggedPass();
 void initializeRISCVTaggedPass(PassRegistry &);
 
+FunctionPass *createRISCVTagStorePass();
+void initializeRISCVTagStorePass(PassRegistry &);
+
 FunctionPass *createRISCVLateBranchOptPass();
 void initializeRISCVLateBranchOptPass(PassRegistry &);
 
