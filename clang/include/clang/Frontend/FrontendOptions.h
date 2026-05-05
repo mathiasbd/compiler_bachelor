@@ -422,10 +422,6 @@ public:
   LLVM_PREFERRED_TYPE(bool)
   unsigned ClangIRDisableCIRVerifier : 1;
 
-  /// Enable Clang IR (CIR) idiom recognizer
-  LLVM_PREFERRED_TYPE(bool)
-  unsigned ClangIREnableIdiomRecognizer : 1;
-
   CodeCompleteOptions CodeCompleteOpts;
 
   /// Specifies the output format of the AST.
@@ -556,8 +552,8 @@ public:
         EmitSymbolGraphSymbolLabelsForTesting(false),
         EmitPrettySymbolGraphs(false), GenReducedBMI(false),
         UseClangIRPipeline(false), ClangIRDisablePasses(false),
-        ClangIRDisableCIRVerifier(false), ClangIREnableIdiomRecognizer(false),
-        TimeTraceGranularity(500), TimeTraceVerbose(false) {}
+        ClangIRDisableCIRVerifier(false), TimeTraceGranularity(500),
+        TimeTraceVerbose(false) {}
 
   /// getInputKindForExtension - Return the appropriate input kind for a file
   /// extension. For example, "c" would return Language::C.

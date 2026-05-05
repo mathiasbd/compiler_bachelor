@@ -4687,31 +4687,20 @@ Sema::PerformImplicitConversion(Expr *From, QualType ToType,
   return From;
 }
 
-// adjustVectorOrConstantMatrixType - Compute the intermediate cast type casting
-// elements of the from type to the elements of the to type without resizing the
-// vector or matrix.
-static QualType adjustVectorOrConstantMatrixType(ASTContext &Context,
-                                                 QualType FromTy,
-                                                 QualType ToType,
-                                                 QualType *ElTy = nullptr) {
+// adjustVectorType - Compute the intermediate cast type casting elements of the
+// from type to the elements of the to type without resizing the vector.
+static QualType adjustVectorType(ASTContext &Context, QualType FromTy,
+                                 QualType ToType, QualType *ElTy = nullptr) {
   QualType ElType = ToType;
   if (auto *ToVec = ToType->getAs<VectorType>())
     ElType = ToVec->getElementType();
-  else if (auto *ToMat = ToType->getAs<ConstantMatrixType>())
-    ElType = ToMat->getElementType();
 
   if (ElTy)
     *ElTy = ElType;
-  if (FromTy->isVectorType()) {
-    auto *FromVec = FromTy->castAs<VectorType>();
-    return Context.getExtVectorType(ElType, FromVec->getNumElements());
-  }
-  if (FromTy->isConstantMatrixType()) {
-    auto *FromMat = FromTy->castAs<ConstantMatrixType>();
-    return Context.getConstantMatrixType(ElType, FromMat->getNumRows(),
-                                         FromMat->getNumColumns());
-  }
-  return ElType;
+  if (!FromTy->isVectorType())
+    return ElType;
+  auto *FromVec = FromTy->castAs<VectorType>();
+  return Context.getExtVectorType(ElType, FromVec->getNumElements());
 }
 
 /// Check if an integral conversion involves incompatible overflow behavior
@@ -4895,10 +4884,8 @@ Sema::PerformImplicitConversion(Expr *From, QualType ToType,
   case ICK_Integral_Conversion: {
     QualType ElTy = ToType;
     QualType StepTy = ToType;
-    if (FromType->isVectorType() || ToType->isVectorType() ||
-        FromType->isConstantMatrixType() || ToType->isConstantMatrixType())
-      StepTy =
-          adjustVectorOrConstantMatrixType(Context, FromType, ToType, &ElTy);
+    if (FromType->isVectorType() || ToType->isVectorType())
+      StepTy = adjustVectorType(Context, FromType, ToType, &ElTy);
 
     // Check for incompatible OBT kinds before converting
     if (checkIncompatibleOBTConversion(*this, FromType, StepTy, From))
@@ -4922,9 +4909,8 @@ Sema::PerformImplicitConversion(Expr *From, QualType ToType,
   case ICK_Floating_Promotion:
   case ICK_Floating_Conversion: {
     QualType StepTy = ToType;
-    if (FromType->isVectorType() || ToType->isVectorType() ||
-        FromType->isConstantMatrixType() || ToType->isConstantMatrixType())
-      StepTy = adjustVectorOrConstantMatrixType(Context, FromType, ToType);
+    if (FromType->isVectorType() || ToType->isVectorType())
+      StepTy = adjustVectorType(Context, FromType, ToType);
     From = ImpCastExprToType(From, StepTy, CK_FloatingCast, VK_PRValue,
                              /*BasePath=*/nullptr, CCK)
                .get();
@@ -4955,10 +4941,8 @@ Sema::PerformImplicitConversion(Expr *From, QualType ToType,
   case ICK_Floating_Integral: {
     QualType ElTy = ToType;
     QualType StepTy = ToType;
-    if (FromType->isVectorType() || ToType->isVectorType() ||
-        FromType->isConstantMatrixType() || ToType->isConstantMatrixType())
-      StepTy =
-          adjustVectorOrConstantMatrixType(Context, FromType, ToType, &ElTy);
+    if (FromType->isVectorType() || ToType->isVectorType())
+      StepTy = adjustVectorType(Context, FromType, ToType, &ElTy);
     if (ElTy->isRealFloatingType())
       From = ImpCastExprToType(From, StepTy, CK_IntegralToFloating, VK_PRValue,
                                /*BasePath=*/nullptr, CCK)
@@ -5112,13 +5096,9 @@ Sema::PerformImplicitConversion(Expr *From, QualType ToType,
     QualType StepTy = ToType;
     if (FromType->isVectorType())
       ElTy = FromType->castAs<VectorType>()->getElementType();
-    else if (FromType->isConstantMatrixType())
-      ElTy = FromType->castAs<ConstantMatrixType>()->getElementType();
-    if (getLangOpts().HLSL) {
-      if (FromType->isVectorType() || ToType->isVectorType() ||
-          FromType->isConstantMatrixType() || ToType->isConstantMatrixType())
-        StepTy = adjustVectorOrConstantMatrixType(Context, FromType, ToType);
-    }
+    if (getLangOpts().HLSL &&
+        (FromType->isVectorType() || ToType->isVectorType()))
+      StepTy = adjustVectorType(Context, FromType, ToType);
 
     From = ImpCastExprToType(From, StepTy, ScalarTypeToBooleanCastKind(ElTy),
                              VK_PRValue,

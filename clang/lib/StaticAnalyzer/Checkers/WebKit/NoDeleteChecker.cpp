@@ -12,7 +12,6 @@
 #include "clang/AST/Decl.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/DynamicRecursiveASTVisitor.h"
-#include "clang/AST/QualTypeNames.h"
 #include "clang/Analysis/DomainSpecific/CocoaConventions.h"
 #include "clang/Basic/SourceLocation.h"
 #include "clang/StaticAnalyzer/Checkers/BuiltinCheckerRegistration.h"
@@ -86,7 +85,7 @@ public:
   }
 
   void visitFunctionDecl(const FunctionDecl *FD) const {
-    if (!FD->doesThisDeclarationHaveABody() || FD->isDependentContext())
+    if (!FD->doesThisDeclarationHaveABody())
       return;
 
     if (!hasNoDeleteAnnotation(FD))
@@ -96,15 +95,8 @@ public:
     if (!Body)
       return;
 
-    NamedDecl *ParamDecl = nullptr;
-    for (auto *D : FD->parameters()) {
-      if (!TFA.hasTrivialDtor(D)) {
-        ParamDecl = D;
-        break;
-      }
-    }
-    const Stmt *OffendingStmt = nullptr;
-    if (!ParamDecl && TFA.isTrivial(Body, &OffendingStmt))
+    auto hasTrivialDtor = [&](VarDecl *D) { return TFA.hasTrivialDtor(D); };
+    if (llvm::all_of(FD->parameters(), hasTrivialDtor) && TFA.isTrivial(Body))
       return;
 
     SmallString<100> Buf;
@@ -112,24 +104,13 @@ public:
 
     Os << "A function ";
     printQuotedName(Os, FD);
-    Os << " has [[clang::annotate_type(\"webkit.nodelete\")]] but it contains ";
-    SourceLocation SrcLocToReport;
-    SourceRange Range;
-    if (ParamDecl) {
-      Os << "a parameter ";
-      printQuotedName(Os, ParamDecl);
-      Os << " which could destruct an object.";
-      SrcLocToReport = FD->getBeginLoc();
-      Range = ParamDecl->getSourceRange();
-    } else {
-      Os << "code that could destruct an object.";
-      SrcLocToReport = OffendingStmt->getBeginLoc();
-      Range = OffendingStmt->getSourceRange();
-    }
+    Os << " has [[clang::annotate_type(\"webkit.nodelete\")]] but it contains "
+          "code that could destruct an object";
 
+    const SourceLocation SrcLocToReport = FD->getBeginLoc();
     PathDiagnosticLocation BSLoc(SrcLocToReport, BR->getSourceManager());
     auto Report = std::make_unique<BasicBugReport>(Bug, Os.str(), BSLoc);
-    Report->addRange(Range);
+    Report->addRange(FD->getSourceRange());
     Report->setDeclWithIssue(FD);
     BR->emitReport(std::move(Report));
   }

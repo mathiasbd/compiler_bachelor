@@ -1485,11 +1485,9 @@ ConstantLValueEmitter::VisitCXXTypeidExpr(const CXXTypeidExpr *e) {
 
 ConstantLValue ConstantLValueEmitter::VisitMaterializeTemporaryExpr(
     const MaterializeTemporaryExpr *e) {
-  assert(e->getStorageDuration() == SD_Static);
-  const Expr *inner = e->getSubExpr()->skipRValueSubobjectAdjustments();
-  mlir::Operation *global = cgm.getAddrOfGlobalTemporary(e, inner);
-  return ConstantLValue(
-      cgm.getBuilder().getGlobalViewAttr(mlir::cast<cir::GlobalOp>(global)));
+  cgm.errorNYI(e->getSourceRange(),
+               "ConstantLValueEmitter: materialize temporary expr");
+  return {};
 }
 
 //===----------------------------------------------------------------------===//
@@ -1499,14 +1497,6 @@ ConstantLValue ConstantLValueEmitter::VisitMaterializeTemporaryExpr(
 mlir::Attribute ConstantEmitter::tryEmitForInitializer(const VarDecl &d) {
   initializeNonAbstract();
   return markIfFailed(tryEmitPrivateForVarInit(d));
-}
-
-mlir::Attribute ConstantEmitter::emitForInitializer(const APValue &value,
-                                                    QualType destType) {
-  initializeNonAbstract();
-  auto c = tryEmitPrivateForMemory(value, destType);
-  assert(c && "couldn't emit constant value non-abstractly?");
-  return c;
 }
 
 void ConstantEmitter::finalize(cir::GlobalOp gv) {

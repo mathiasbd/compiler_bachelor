@@ -450,13 +450,9 @@ class NestedNameSpecifierLocBuilder {
 public:
   NestedNameSpecifierLocBuilder() = default;
   NestedNameSpecifierLocBuilder(const NestedNameSpecifierLocBuilder &Other);
-  NestedNameSpecifierLocBuilder(NestedNameSpecifierLocBuilder &&Other);
 
   NestedNameSpecifierLocBuilder &
   operator=(const NestedNameSpecifierLocBuilder &Other);
-
-  NestedNameSpecifierLocBuilder &
-  operator=(NestedNameSpecifierLocBuilder &&Other);
 
   ~NestedNameSpecifierLocBuilder() {
     if (BufferCapacity)

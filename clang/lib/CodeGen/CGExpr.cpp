@@ -2510,9 +2510,8 @@ RValue CodeGenFunction::EmitLoadOfLValue(LValue LV, SourceLocation Loc) {
   if (LV.isVectorElt()) {
     llvm::LoadInst *Load = Builder.CreateLoad(LV.getVectorAddress(),
                                               LV.isVolatileQualified());
-    llvm::Value *Elt =
-        Builder.CreateExtractElement(Load, LV.getVectorIdx(), "vecext");
-    return RValue::get(EmitFromMemory(Elt, LV.getType()));
+    return RValue::get(Builder.CreateExtractElement(Load, LV.getVectorIdx(),
+                                                    "vecext"));
   }
 
   // If this is a reference to a subset of the elements of a vector, either
@@ -2527,18 +2526,14 @@ RValue CodeGenFunction::EmitLoadOfLValue(LValue LV, SourceLocation Loc) {
 
   if (LV.isMatrixElt()) {
     llvm::Value *Idx = LV.getMatrixIdx();
-    QualType EltTy = LV.getType();
-    if (const auto *MatTy = EltTy->getAs<ConstantMatrixType>()) {
-      EltTy = MatTy->getElementType();
-      if (CGM.getCodeGenOpts().OptimizationLevel > 0) {
-        llvm::MatrixBuilder MB(Builder);
-        MB.CreateIndexAssumption(Idx, MatTy->getNumElementsFlattened());
-      }
+    if (CGM.getCodeGenOpts().OptimizationLevel > 0) {
+      const auto *const MatTy = LV.getType()->castAs<ConstantMatrixType>();
+      llvm::MatrixBuilder MB(Builder);
+      MB.CreateIndexAssumption(Idx, MatTy->getNumElementsFlattened());
     }
     llvm::LoadInst *Load =
         Builder.CreateLoad(LV.getMatrixAddress(), LV.isVolatileQualified());
-    llvm::Value *Elt = Builder.CreateExtractElement(Load, Idx, "matrixext");
-    return RValue::get(EmitFromMemory(Elt, EltTy));
+    return RValue::get(Builder.CreateExtractElement(Load, Idx, "matrixext"));
   }
   if (LV.isMatrixRow()) {
     QualType MatTy = LV.getType();

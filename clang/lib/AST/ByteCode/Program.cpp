@@ -319,7 +319,6 @@ Record *Program::getOrCreateRecord(const RecordDecl *RD) {
   Record::BaseList Bases;
   Record::VirtualBaseList VirtBases;
   if (const auto *CD = dyn_cast<CXXRecordDecl>(RD)) {
-    Bases.reserve(CD->getNumBases());
     for (const CXXBaseSpecifier &Spec : CD->bases()) {
       if (Spec.isVirtual())
         continue;
@@ -335,7 +334,7 @@ Record *Program::getOrCreateRecord(const RecordDecl *RD) {
         return nullptr;
 
       BaseSize += align(sizeof(InlineDescriptor));
-      Bases.emplace_back(BD, Desc, BR, BaseSize);
+      Bases.push_back({BD, BaseSize, Desc, BR});
       BaseSize += align(BR->getSize());
     }
 
@@ -348,15 +347,13 @@ Record *Program::getOrCreateRecord(const RecordDecl *RD) {
         return nullptr;
 
       VirtSize += align(sizeof(InlineDescriptor));
-      VirtBases.emplace_back(BD, Desc, BR, VirtSize);
+      VirtBases.push_back({BD, VirtSize, Desc, BR});
       VirtSize += align(BR->getSize());
     }
   }
 
   // Reserve space for fields.
   Record::FieldList Fields;
-  Fields.reserve(RD->getNumFields());
-  bool HasPtrField = false;
   for (const FieldDecl *FD : RD->fields()) {
     FD = FD->getFirstDecl();
     // Note that we DO create fields and descriptors
@@ -375,22 +372,18 @@ Record *Program::getOrCreateRecord(const RecordDecl *RD) {
     if (OptPrimType T = Ctx.classify(FT)) {
       Desc = createDescriptor(FD, *T, nullptr, std::nullopt, IsConst,
                               /*isTemporary=*/false, IsMutable, IsVolatile);
-      HasPtrField = HasPtrField || (T == PT_Ptr);
     } else {
       Desc = createDescriptor(FD, FT.getTypePtr(), std::nullopt, IsConst,
                               /*isTemporary=*/false, IsMutable, IsVolatile);
-      HasPtrField = HasPtrField || (Desc && Desc->isPrimitiveArray() &&
-                                    Desc->getPrimType() == PT_Ptr);
     }
     if (!Desc)
       return nullptr;
-    Fields.emplace_back(FD, Desc, BaseSize);
+    Fields.push_back({FD, BaseSize, Desc});
     BaseSize += align(Desc->getAllocSize());
   }
 
-  Record *R = new (Allocator)
-      Record(RD, std::move(Bases), std::move(Fields), std::move(VirtBases),
-             VirtSize, BaseSize, HasPtrField);
+  Record *R = new (Allocator) Record(RD, std::move(Bases), std::move(Fields),
+                                     std::move(VirtBases), VirtSize, BaseSize);
   Records[RD] = R;
   return R;
 }

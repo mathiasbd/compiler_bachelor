@@ -414,10 +414,7 @@ enum class WebKitAnnotation : uint8_t {
 
 static WebKitAnnotation typeAnnotationForReturnType(const FunctionDecl *FD) {
   auto RetType = FD->getReturnType();
-  auto *Type = RetType.getTypePtrOrNull();
-  if (auto *MacroQualified = dyn_cast_or_null<MacroQualifiedType>(Type))
-    Type = MacroQualified->desugar().getTypePtrOrNull();
-  auto *Attr = dyn_cast_or_null<AttributedType>(Type);
+  auto *Attr = dyn_cast_or_null<AttributedType>(RetType.getTypePtrOrNull());
   if (!Attr)
     return WebKitAnnotation::None;
   auto *AnnotateType = dyn_cast_or_null<AnnotateTypeAttr>(Attr->getAttr());
@@ -486,11 +483,8 @@ class TrivialFunctionAnalysisVisitor
   // Returns false if at least one child is non-trivial.
   bool VisitChildren(const Stmt *S) {
     for (const Stmt *Child : S->children()) {
-      if (Child && !Visit(Child)) {
-        if (OffendingStmt && !*OffendingStmt)
-          *OffendingStmt = Child;
+      if (Child && !Visit(Child))
         return false;
-      }
     }
 
     return true;
@@ -499,7 +493,7 @@ class TrivialFunctionAnalysisVisitor
   template <typename StmtOrDecl, typename CheckFunction>
   bool WithCachedResult(const StmtOrDecl *S, CheckFunction Function) {
     auto CacheIt = Cache.find(S);
-    if (CacheIt != Cache.end() && !OffendingStmt)
+    if (CacheIt != Cache.end())
       return CacheIt->second;
 
     // Treat a recursive statement to be trivial until proven otherwise.
@@ -530,8 +524,8 @@ class TrivialFunctionAnalysisVisitor
     if (Ty->isPointerOrReferenceType())
       return true;
 
-    // Fundamental types (integral, nullptr_t, etc...) don't have destructors.
-    if (Ty->isFundamentalType() || Ty->isIntegralOrEnumerationType())
+    // Primitive types don't have destructors.
+    if (Ty->isIntegralOrEnumerationType())
       return true;
 
     if (const auto *R = Ty->getAsCXXRecordDecl()) {
@@ -560,13 +554,10 @@ class TrivialFunctionAnalysisVisitor
 public:
   using CacheTy = TrivialFunctionAnalysis::CacheTy;
 
-  TrivialFunctionAnalysisVisitor(CacheTy &Cache,
-                                 const Stmt **OffendingStmt = nullptr)
-      : Cache(Cache), OffendingStmt(OffendingStmt) {}
+  TrivialFunctionAnalysisVisitor(CacheTy &Cache) : Cache(Cache) {}
 
   bool IsFunctionTrivial(const Decl *D) {
-    const Stmt **SavedOffendingStmt = std::exchange(OffendingStmt, nullptr);
-    auto Result = WithCachedResult(D, [&]() {
+    return WithCachedResult(D, [&]() {
       if (auto *FnDecl = dyn_cast<FunctionDecl>(D)) {
         if (isNoDeleteFunction(FnDecl))
           return true;
@@ -588,8 +579,6 @@ public:
         return false;
       return Visit(Body);
     });
-    OffendingStmt = SavedOffendingStmt;
-    return Result;
   }
 
   bool HasTrivialDestructor(const VarDecl *VD) {
@@ -787,11 +776,6 @@ public:
     return IsFunctionTrivial(Callee);
   }
 
-  bool VisitCXXRewrittenBinaryOperator(const CXXRewrittenBinaryOperator *Op) {
-    auto *SemanticExpr = Op->getSemanticForm();
-    return SemanticExpr && Visit(SemanticExpr);
-  }
-
   bool VisitCXXDefaultArgExpr(const CXXDefaultArgExpr *E) {
     if (auto *Expr = E->getExpr()) {
       if (!Visit(Expr))
@@ -920,20 +904,17 @@ public:
 private:
   CacheTy &Cache;
   CacheTy RecursiveFn;
-  const Stmt **OffendingStmt;
 };
 
 bool TrivialFunctionAnalysis::isTrivialImpl(
-    const Decl *D, TrivialFunctionAnalysis::CacheTy &Cache,
-    const Stmt **OffendingStmt) {
-  TrivialFunctionAnalysisVisitor V(Cache, OffendingStmt);
+    const Decl *D, TrivialFunctionAnalysis::CacheTy &Cache) {
+  TrivialFunctionAnalysisVisitor V(Cache);
   return V.IsFunctionTrivial(D);
 }
 
 bool TrivialFunctionAnalysis::isTrivialImpl(
-    const Stmt *S, TrivialFunctionAnalysis::CacheTy &Cache,
-    const Stmt **OffendingStmt) {
-  TrivialFunctionAnalysisVisitor V(Cache, OffendingStmt);
+    const Stmt *S, TrivialFunctionAnalysis::CacheTy &Cache) {
+  TrivialFunctionAnalysisVisitor V(Cache);
   return V.IsStatementTrivial(S);
 }
 

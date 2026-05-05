@@ -108,8 +108,10 @@ class alignas(EHScopeStack::ScopeStackAlignment) EHCleanupScope
   /// created if needed before the cleanup is popped.
   mlir::Block *normalBlock = nullptr;
 
-  /// Cleanup scope op that represent the current scope in CIR
-  cir::CleanupScopeOp cleanupScopeOp;
+  /// The number of fixups required by enclosing scopes (not including
+  /// this one).  If this is the top cleanup scope, all the fixups
+  /// from this index onwards belong to this scope.
+  unsigned fixupDepth = 0;
 
 public:
   /// Gets the size required for a lazy cleanup scope with the given
@@ -123,11 +125,11 @@ public:
   }
 
   EHCleanupScope(bool isNormal, bool isEH, unsigned cleanupSize,
-                 cir::CleanupScopeOp cleanupScopeOp,
+                 unsigned fixupDepth,
                  EHScopeStack::stable_iterator enclosingNormal,
                  EHScopeStack::stable_iterator enclosingEH)
       : EHScope(EHScope::Cleanup, enclosingEH),
-        enclosingNormal(enclosingNormal), cleanupScopeOp(cleanupScopeOp) {
+        enclosingNormal(enclosingNormal), fixupDepth(fixupDepth) {
     cleanupBits.isNormalCleanup = isNormal;
     cleanupBits.isEHCleanup = isEH;
     cleanupBits.isActive = true;
@@ -154,6 +156,7 @@ public:
 
   bool isLifetimeMarker() const { return cleanupBits.isLifetimeMarker; }
 
+  unsigned getFixupDepth() const { return fixupDepth; }
   EHScopeStack::stable_iterator getEnclosingNormalCleanup() const {
     return enclosingNormal;
   }
@@ -164,8 +167,6 @@ public:
   EHScopeStack::Cleanup *getCleanup() {
     return reinterpret_cast<EHScopeStack::Cleanup *>(getCleanupBuffer());
   }
-
-  cir::CleanupScopeOp getCleanupScopeOp() { return cleanupScopeOp; }
 
   static bool classof(const EHScope *scope) {
     return (scope->getKind() == Cleanup);

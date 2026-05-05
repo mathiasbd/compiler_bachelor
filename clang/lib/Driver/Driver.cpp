@@ -61,7 +61,6 @@
 #include "clang/Driver/Compilation.h"
 #include "clang/Driver/InputInfo.h"
 #include "clang/Driver/Job.h"
-#include "clang/Driver/ModulesDriver.h"
 #include "clang/Driver/Phases.h"
 #include "clang/Driver/SanitizerArgs.h"
 #include "clang/Driver/Tool.h"
@@ -91,7 +90,6 @@
 #include "llvm/Support/FileUtilities.h"
 #include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/IOSandbox.h"
-#include "llvm/Support/JSON.h"
 #include "llvm/Support/MD5.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/PrettyStackTrace.h"
@@ -1827,48 +1825,6 @@ Compilation *Driver::BuildCompilation(ArrayRef<const char *> ArgList) {
   // Populate the tool chains for the offloading devices, if any.
   CreateOffloadingDeviceToolChains(*C, Inputs);
 
-  bool UseModulesDriver = C->getArgs().hasFlag(
-      options::OPT_fmodules_driver, options::OPT_fno_modules_driver, false);
-  modules::StdModuleManifest ModulesManifest;
-  if (UseModulesDriver) {
-    Diags.Report(diag::remark_performing_driver_managed_module_build);
-
-    // Read the Standard library module manifest and, if available, add all
-    // discovered modules to this Compilation. Jobs for modules specified in
-    // the manifest that are not required by any command-line input are pruned
-    // later.
-    const auto StdModuleManifestPath =
-        GetStdModuleManifestPath(*C, C->getDefaultToolChain());
-
-    if (!llvm::sys::fs::exists(StdModuleManifestPath))
-      Diags.Report(diag::remark_modules_manifest_not_found);
-    else {
-      Diags.Report(diag::remark_using_modules_manifest)
-          << StdModuleManifestPath;
-      if (auto ManifestOrErr =
-              modules::readStdModuleManifest(StdModuleManifestPath, getVFS())) {
-        ModulesManifest = std::move(*ManifestOrErr);
-        // Only allow on-demand imports of standard library modules for now.
-        llvm::erase_if(ModulesManifest.Modules, [](const auto &ModuleEntry) {
-          return !ModuleEntry.IsStdlib;
-        });
-        modules::buildStdModuleManifestInputs(ModulesManifest.Modules, *C,
-                                              Inputs);
-      } else {
-        llvm::handleAllErrors(
-            ManifestOrErr.takeError(),
-            [&](llvm::json::ParseError &Err) {
-              Diags.Report(diag::err_modules_manifest_failed_parse)
-                  << Err.message();
-            },
-            [&](llvm::FileError &Err) {
-              Diags.Report(diag::err_cannot_open_file)
-                  << Err.getFileName() << Err.messageWithoutFileInfo();
-            });
-      }
-    }
-  }
-
   // Construct the list of abstract actions to perform for this compilation. On
   // MachO targets this uses the driver-driver and universal actions.
   if (TC.getTriple().isOSBinFormatMachO())
@@ -1882,9 +1838,6 @@ Compilation *Driver::BuildCompilation(ArrayRef<const char *> ArgList) {
   }
 
   BuildJobs(*C);
-
-  if (UseModulesDriver)
-    modules::runModulesDriver(*C, ModulesManifest.Modules);
 
   return C;
 }
@@ -4431,9 +4384,14 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
 
   handleArguments(C, Args, Inputs, Actions);
 
-  bool UseNewOffloadingDriver = Args.hasFlag(
-      options::OPT_offload_new_driver, options::OPT_no_offload_new_driver,
-      C.getActiveOffloadKinds() != Action::OFK_None);
+  bool UseNewOffloadingDriver =
+      C.isOffloadingHostKind(Action::OFK_OpenMP) ||
+      C.isOffloadingHostKind(Action::OFK_SYCL) ||
+      Args.hasFlag(options::OPT_foffload_via_llvm,
+                   options::OPT_fno_offload_via_llvm, false) ||
+      Args.hasFlag(options::OPT_offload_new_driver,
+                   options::OPT_no_offload_new_driver,
+                   C.isOffloadingHostKind(Action::OFK_Cuda));
 
   // Builder to be used to build offloading actions.
   std::unique_ptr<OffloadingActionBuilder> OffloadBuilder =
@@ -5055,8 +5013,8 @@ Action *Driver::BuildOffloadingActions(Compilation &C,
   bool ShouldBundleHIP =
       Args.hasFlag(options::OPT_gpu_bundle_output,
                    options::OPT_no_gpu_bundle_output, false) ||
-      (!Args.getLastArg(options::OPT_no_gpu_bundle_output) && HIPNoRDC &&
-       offloadDeviceOnly() && llvm::none_of(OffloadActions, [](Action *A) {
+      (HIPNoRDC && offloadDeviceOnly() &&
+       llvm::none_of(OffloadActions, [](Action *A) {
          return A->getType() != types::TY_Image;
        }));
 
@@ -5235,8 +5193,7 @@ Action *Driver::ConstructPhaseAction(
     // offload driver, where mid-end is done in linker wrapper.
     if (TargetDeviceOffloadKind == Action::OFK_HIP &&
         Args.hasFlag(options::OPT_offload_new_driver,
-                     options::OPT_no_offload_new_driver,
-                     C.getActiveOffloadKinds() != Action::OFK_None) &&
+                     options::OPT_no_offload_new_driver, false) &&
         !offloadDeviceOnly())
       return Input;
 
@@ -5293,8 +5250,7 @@ Action *Driver::ConstructPhaseAction(
          ((Args.hasFlag(options::OPT_fgpu_rdc, options::OPT_fno_gpu_rdc,
                         false) ||
            (Args.hasFlag(options::OPT_offload_new_driver,
-                         options::OPT_no_offload_new_driver,
-                         C.getActiveOffloadKinds() != Action::OFK_None) &&
+                         options::OPT_no_offload_new_driver, false) &&
             (!offloadDeviceOnly() ||
              (Input->getOffloadingToolChain() &&
               TargetDeviceOffloadKind == Action::OFK_HIP &&
@@ -5307,8 +5263,7 @@ Action *Driver::ConstructPhaseAction(
                    (TargetDeviceOffloadKind == Action::OFK_HIP &&
                     !Args.hasFlag(options::OPT_offload_new_driver,
                                   options::OPT_no_offload_new_driver,
-                                  C.getActiveOffloadKinds() !=
-                                      Action::OFK_None)))
+                                  C.isOffloadingHostKind(Action::OFK_Cuda))))
               ? types::TY_LLVM_IR
               : types::TY_LLVM_BC;
       return C.MakeAction<BackendJobAction>(Input, Output);

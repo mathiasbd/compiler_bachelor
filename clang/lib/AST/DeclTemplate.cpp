@@ -1662,27 +1662,27 @@ clang::getReplacedTemplateParameter(Decl *D, unsigned Index) {
   case Decl::Kind::ClassTemplateSpecialization: {
     const auto *CTSD = cast<ClassTemplateSpecializationDecl>(D);
     auto P = CTSD->getSpecializedTemplateOrPartial();
+    TemplateParameterList *TPL;
     if (const auto *CTPSD =
             dyn_cast<ClassTemplatePartialSpecializationDecl *>(P)) {
-      TemplateParameterList *TPL = CTPSD->getTemplateParameters();
-      return {TPL->getParam(Index),
-              CTSD->getTemplateInstantiationArgs()[Index]};
+      TPL = CTPSD->getTemplateParameters();
+      // FIXME: Obtain Args deduced for the partial specialization.
+      return {TPL->getParam(Index), {}};
     }
-    TemplateParameterList *TPL =
-        cast<ClassTemplateDecl *>(P)->getTemplateParameters();
+    TPL = cast<ClassTemplateDecl *>(P)->getTemplateParameters();
     return {TPL->getParam(Index), CTSD->getTemplateArgs()[Index]};
   }
   case Decl::Kind::VarTemplateSpecialization: {
     const auto *VTSD = cast<VarTemplateSpecializationDecl>(D);
     auto P = VTSD->getSpecializedTemplateOrPartial();
+    TemplateParameterList *TPL;
     if (const auto *VTPSD =
             dyn_cast<VarTemplatePartialSpecializationDecl *>(P)) {
-      TemplateParameterList *TPL = VTPSD->getTemplateParameters();
-      return {TPL->getParam(Index),
-              VTSD->getTemplateInstantiationArgs()[Index]};
+      TPL = VTPSD->getTemplateParameters();
+      // FIXME: Obtain Args deduced for the partial specialization.
+      return {TPL->getParam(Index), {}};
     }
-    TemplateParameterList *TPL =
-        cast<VarTemplateDecl *>(P)->getTemplateParameters();
+    TPL = cast<VarTemplateDecl *>(P)->getTemplateParameters();
     return {TPL->getParam(Index), VTSD->getTemplateArgs()[Index]};
   }
   case Decl::Kind::ClassTemplatePartialSpecialization:

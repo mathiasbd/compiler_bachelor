@@ -73,13 +73,13 @@ TextNodeDumper::TextNodeDumper(raw_ostream &OS, bool ShowColors)
 void TextNodeDumper::Visit(const comments::Comment *C,
                            const comments::FullComment *FC) {
   if (!C) {
-    ColorScope Color(OS, ShowColors, ASTDumpColor::Null);
+    ColorScope Color(OS, ShowColors, NullColor);
     OS << "<<<NULL>>>";
     return;
   }
 
   {
-    ColorScope Color(OS, ShowColors, ASTDumpColor::Comment);
+    ColorScope Color(OS, ShowColors, CommentColor);
     OS << C->getCommentKindName();
   }
   dumpPointer(C);
@@ -91,7 +91,7 @@ void TextNodeDumper::Visit(const comments::Comment *C,
 
 void TextNodeDumper::Visit(const Attr *A) {
   {
-    ColorScope Color(OS, ShowColors, ASTDumpColor::Attr);
+    ColorScope Color(OS, ShowColors, AttrColor);
 
     switch (A->getKind()) {
 #define ATTR(X)                                                                \
@@ -126,12 +126,12 @@ void TextNodeDumper::Visit(const TemplateArgument &TA, SourceRange R,
 
 void TextNodeDumper::Visit(const Stmt *Node) {
   if (!Node) {
-    ColorScope Color(OS, ShowColors, ASTDumpColor::Null);
+    ColorScope Color(OS, ShowColors, NullColor);
     OS << "<<<NULL>>>";
     return;
   }
   {
-    ColorScope Color(OS, ShowColors, ASTDumpColor::Stmt);
+    ColorScope Color(OS, ShowColors, StmtColor);
     OS << Node->getStmtClassName();
   }
   dumpPointer(Node);
@@ -141,12 +141,12 @@ void TextNodeDumper::Visit(const Stmt *Node) {
     dumpType(E->getType());
 
     if (E->containsErrors()) {
-      ColorScope Color(OS, ShowColors, ASTDumpColor::Errors);
+      ColorScope Color(OS, ShowColors, ErrorsColor);
       OS << " contains-errors";
     }
 
     {
-      ColorScope Color(OS, ShowColors, ASTDumpColor::ValueKind);
+      ColorScope Color(OS, ShowColors, ValueKindColor);
       switch (E->getValueKind()) {
       case VK_PRValue:
         break;
@@ -160,7 +160,7 @@ void TextNodeDumper::Visit(const Stmt *Node) {
     }
 
     {
-      ColorScope Color(OS, ShowColors, ASTDumpColor::ObjectKind);
+      ColorScope Color(OS, ShowColors, ObjectKindColor);
       switch (E->getObjectKind()) {
       case OK_Ordinary:
         break;
@@ -188,13 +188,13 @@ void TextNodeDumper::Visit(const Stmt *Node) {
 
 void TextNodeDumper::Visit(const Type *T) {
   if (!T) {
-    ColorScope Color(OS, ShowColors, ASTDumpColor::Null);
+    ColorScope Color(OS, ShowColors, NullColor);
     OS << "<<<NULL>>>";
     return;
   }
   if (isa<LocInfoType>(T)) {
     {
-      ColorScope Color(OS, ShowColors, ASTDumpColor::Type);
+      ColorScope Color(OS, ShowColors, TypeColor);
       OS << "LocInfo Type";
     }
     dumpPointer(T);
@@ -202,7 +202,7 @@ void TextNodeDumper::Visit(const Type *T) {
   }
 
   {
-    ColorScope Color(OS, ShowColors, ASTDumpColor::Type);
+    ColorScope Color(OS, ShowColors, TypeColor);
     OS << T->getTypeClassName() << "Type";
   }
   dumpPointer(T);
@@ -215,7 +215,7 @@ void TextNodeDumper::Visit(const Type *T) {
     OS << " sugar";
 
   if (T->containsErrors()) {
-    ColorScope Color(OS, ShowColors, ASTDumpColor::Errors);
+    ColorScope Color(OS, ShowColors, ErrorsColor);
     OS << " contains-errors";
   }
 
@@ -244,13 +244,13 @@ void TextNodeDumper::Visit(QualType T) {
 
 void TextNodeDumper::Visit(TypeLoc TL) {
   if (!TL) {
-    ColorScope Color(OS, ShowColors, ASTDumpColor::Null);
+    ColorScope Color(OS, ShowColors, NullColor);
     OS << "<<<NULL>>>";
     return;
   }
 
   {
-    ColorScope Color(OS, ShowColors, ASTDumpColor::Type);
+    ColorScope Color(OS, ShowColors, TypeColor);
     OS << (TL.getTypeLocClass() == TypeLoc::Qualified
                ? "Qualified"
                : TL.getType()->getTypeClassName())
@@ -265,13 +265,13 @@ void TextNodeDumper::Visit(TypeLoc TL) {
 
 void TextNodeDumper::Visit(const Decl *D) {
   if (!D) {
-    ColorScope Color(OS, ShowColors, ASTDumpColor::Null);
+    ColorScope Color(OS, ShowColors, NullColor);
     OS << "<<<NULL>>>";
     return;
   }
 
   {
-    ColorScope Color(OS, ShowColors, ASTDumpColor::DeclKindName);
+    ColorScope Color(OS, ShowColors, DeclKindNameColor);
     OS << D->getDeclKindName() << "Decl";
   }
   dumpPointer(D);
@@ -318,7 +318,7 @@ void TextNodeDumper::Visit(const Decl *D) {
     if (!MD || !MD->isThisDeclarationADefinition()) {
       const auto *DC = dyn_cast<DeclContext>(D);
       if (DC && DC->hasExternalLexicalStorage()) {
-        ColorScope Color(OS, ShowColors, ASTDumpColor::Undeserialized);
+        ColorScope Color(OS, ShowColors, UndeserializedColor);
         OS << " <undeserialized declarations>";
       }
     }
@@ -366,12 +366,12 @@ void TextNodeDumper::Visit(const BlockDecl::Capture &C) {
 
 void TextNodeDumper::Visit(const OMPClause *C) {
   if (!C) {
-    ColorScope Color(OS, ShowColors, ASTDumpColor::Null);
+    ColorScope Color(OS, ShowColors, NullColor);
     OS << "<<<NULL>>> OMPClause";
     return;
   }
   {
-    ColorScope Color(OS, ShowColors, ASTDumpColor::Attr);
+    ColorScope Color(OS, ShowColors, AttrColor);
     StringRef ClauseName(llvm::omp::getOpenMPClauseName(C->getClauseKind()));
     OS << "OMP" << ClauseName.substr(/*Start=*/0, /*N=*/1).upper()
        << ClauseName.drop_front() << "Clause";
@@ -389,12 +389,12 @@ void TextNodeDumper::VisitOpenACCAsteriskSizeExpr(
 
 void TextNodeDumper::Visit(const OpenACCClause *C) {
   if (!C) {
-    ColorScope Color(OS, ShowColors, ASTDumpColor::Null);
+    ColorScope Color(OS, ShowColors, NullColor);
     OS << "<<<NULL>>> OpenACCClause";
     return;
   }
   {
-    ColorScope Color(OS, ShowColors, ASTDumpColor::Attr);
+    ColorScope Color(OS, ShowColors, AttrColor);
     OS << C->getClauseKind();
 
     // Handle clauses with parens for types that have no children, likely
@@ -543,7 +543,7 @@ void TextNodeDumper::Visit(const GenericSelectionExpr::ConstAssociation &A) {
 
 void TextNodeDumper::Visit(const ConceptReference *R) {
   if (!R) {
-    ColorScope Color(OS, ShowColors, ASTDumpColor::Null);
+    ColorScope Color(OS, ShowColors, NullColor);
     OS << "<<<NULL>>> ConceptReference";
     return;
   }
@@ -557,13 +557,13 @@ void TextNodeDumper::Visit(const ConceptReference *R) {
 
 void TextNodeDumper::Visit(const concepts::Requirement *R) {
   if (!R) {
-    ColorScope Color(OS, ShowColors, ASTDumpColor::Null);
+    ColorScope Color(OS, ShowColors, NullColor);
     OS << "<<<NULL>>> Requirement";
     return;
   }
 
   {
-    ColorScope Color(OS, ShowColors, ASTDumpColor::Stmt);
+    ColorScope Color(OS, ShowColors, StmtColor);
     switch (R->getKind()) {
     case concepts::Requirement::RK_Type:
       OS << "TypeRequirement";
@@ -674,7 +674,7 @@ void TextNodeDumper::dumpAPValueChildren(
 }
 
 void TextNodeDumper::Visit(const APValue &Value, QualType Ty) {
-  ColorScope Color(OS, ShowColors, ASTDumpColor::ValueKind);
+  ColorScope Color(OS, ShowColors, ValueKindColor);
   switch (Value.getKind()) {
   case APValue::None:
     OS << "None";
@@ -685,21 +685,21 @@ void TextNodeDumper::Visit(const APValue &Value, QualType Ty) {
   case APValue::Int:
     OS << "Int ";
     {
-      ColorScope Color(OS, ShowColors, ASTDumpColor::Value);
+      ColorScope Color(OS, ShowColors, ValueColor);
       OS << Value.getInt();
     }
     return;
   case APValue::Float:
     OS << "Float ";
     {
-      ColorScope Color(OS, ShowColors, ASTDumpColor::Value);
+      ColorScope Color(OS, ShowColors, ValueColor);
       OS << GetApproxValue(Value.getFloat());
     }
     return;
   case APValue::FixedPoint:
     OS << "FixedPoint ";
     {
-      ColorScope Color(OS, ShowColors, ASTDumpColor::Value);
+      ColorScope Color(OS, ShowColors, ValueColor);
       OS << Value.getFixedPoint();
     }
     return;
@@ -718,7 +718,7 @@ void TextNodeDumper::Visit(const APValue &Value, QualType Ty) {
   case APValue::ComplexInt:
     OS << "ComplexInt ";
     {
-      ColorScope Color(OS, ShowColors, ASTDumpColor::Value);
+      ColorScope Color(OS, ShowColors, ValueColor);
       OS << Value.getComplexIntReal() << " + " << Value.getComplexIntImag()
          << 'i';
     }
@@ -726,7 +726,7 @@ void TextNodeDumper::Visit(const APValue &Value, QualType Ty) {
   case APValue::ComplexFloat:
     OS << "ComplexFloat ";
     {
-      ColorScope Color(OS, ShowColors, ASTDumpColor::Value);
+      ColorScope Color(OS, ShowColors, ValueColor);
       OS << GetApproxValue(Value.getComplexFloatReal()) << " + "
          << GetApproxValue(Value.getComplexFloatImag()) << 'i';
     }
@@ -742,7 +742,7 @@ void TextNodeDumper::Visit(const APValue &Value, QualType Ty) {
       dumpPointer(BE);
     } else if (const auto BTI = B.dyn_cast<TypeInfoLValue>()) {
       OS << "TypeInfoLValue ";
-      ColorScope Color(OS, ShowColors, ASTDumpColor::Type);
+      ColorScope Color(OS, ShowColors, TypeColor);
       BTI.print(OS, PrintPolicy);
     } else if (B.is<DynamicAllocLValue>()) {
       OS << "DynamicAllocLValue";
@@ -784,7 +784,7 @@ void TextNodeDumper::Visit(const APValue &Value, QualType Ty) {
     if (Value.hasArrayFiller()) {
       AddChild("filler", [=] {
         {
-          ColorScope Color(OS, ShowColors, ASTDumpColor::Value);
+          ColorScope Color(OS, ShowColors, ValueColor);
           OS << ArraySize - NumInitializedElements << " x ";
         }
         Visit(Value.getArrayFiller(), Ty);
@@ -815,7 +815,7 @@ void TextNodeDumper::Visit(const APValue &Value, QualType Ty) {
   case APValue::Union: {
     OS << "Union";
     {
-      ColorScope Color(OS, ShowColors, ASTDumpColor::Value);
+      ColorScope Color(OS, ShowColors, ValueColor);
       if (const FieldDecl *FD = Value.getUnionField())
         OS << " ." << *cast<NamedDecl>(FD);
     }
@@ -836,13 +836,13 @@ void TextNodeDumper::Visit(const APValue &Value, QualType Ty) {
     auto Path = Value.getMemberPointerPath();
     for (const CXXRecordDecl *D : Path) {
       {
-        ColorScope Color(OS, ShowColors, ASTDumpColor::DeclName);
+        ColorScope Color(OS, ShowColors, DeclNameColor);
         OS << D->getDeclName();
       }
       OS << "::";
     }
 
-    ColorScope Color(OS, ShowColors, ASTDumpColor::DeclName);
+    ColorScope Color(OS, ShowColors, DeclNameColor);
     if (const ValueDecl *MemDecl = Value.getMemberPointerDecl())
       OS << MemDecl->getDeclName();
     else
@@ -860,7 +860,7 @@ void TextNodeDumper::Visit(const APValue &Value, QualType Ty) {
 }
 
 void TextNodeDumper::dumpPointer(const void *Ptr) {
-  ColorScope Color(OS, ShowColors, ASTDumpColor::Address);
+  ColorScope Color(OS, ShowColors, AddressColor);
   OS << ' ' << Ptr;
 }
 
@@ -868,7 +868,7 @@ void TextNodeDumper::dumpLocation(SourceLocation Loc) {
   if (!SM)
     return;
 
-  ColorScope Color(OS, ShowColors, ASTDumpColor::Location);
+  ColorScope Color(OS, ShowColors, LocationColor);
   SourceLocation SpellingLoc = SM->getSpellingLoc(Loc);
 
   // The general format we print out is filename:line:col, but we drop pieces
@@ -910,7 +910,7 @@ void TextNodeDumper::dumpSourceRange(SourceRange R) {
 }
 
 void TextNodeDumper::dumpBareType(QualType T, bool Desugar) {
-  ColorScope Color(OS, ShowColors, ASTDumpColor::Type);
+  ColorScope Color(OS, ShowColors, TypeColor);
 
   SplitQualType T_split = T.split();
   std::string T_str = QualType::getAsString(T_split, PrintPolicy);
@@ -935,19 +935,19 @@ void TextNodeDumper::dumpType(QualType T) {
 
 void TextNodeDumper::dumpBareDeclRef(const Decl *D) {
   if (!D) {
-    ColorScope Color(OS, ShowColors, ASTDumpColor::Null);
+    ColorScope Color(OS, ShowColors, NullColor);
     OS << "<<<NULL>>>";
     return;
   }
 
   {
-    ColorScope Color(OS, ShowColors, ASTDumpColor::DeclKindName);
+    ColorScope Color(OS, ShowColors, DeclKindNameColor);
     OS << D->getDeclKindName();
   }
   dumpPointer(D);
 
   if (const NamedDecl *ND = dyn_cast<NamedDecl>(D)) {
-    ColorScope Color(OS, ShowColors, ASTDumpColor::DeclName);
+    ColorScope Color(OS, ShowColors, DeclNameColor);
     if (DeclarationName Name = ND->getDeclName())
       OS << " '" << Name << '\'';
     else
@@ -991,7 +991,7 @@ void TextNodeDumper::dumpBareDeclRef(const Decl *D) {
 
 void TextNodeDumper::dumpName(const NamedDecl *ND) {
   if (ND->getDeclName()) {
-    ColorScope Color(OS, ShowColors, ASTDumpColor::DeclName);
+    ColorScope Color(OS, ShowColors, DeclNameColor);
     OS << ' ' << ND->getDeclName();
   }
 }
@@ -1011,7 +1011,7 @@ void TextNodeDumper::dumpCleanupObject(
     AddChild([=] {
       OS << "cleanup ";
       {
-        ColorScope Color(OS, ShowColors, ASTDumpColor::Stmt);
+        ColorScope Color(OS, ShowColors, StmtColor);
         OS << CLE->getStmtClassName();
       }
       dumpPointer(CLE);
@@ -1423,11 +1423,11 @@ void TextNodeDumper::VisitLoopControlStmt(const LoopControlStmt *Node) {
 
   auto *Target = Node->getNamedLoopOrSwitch();
   if (!Target) {
-    ColorScope Color(OS, ShowColors, ASTDumpColor::Null);
+    ColorScope Color(OS, ShowColors, NullColor);
     OS << "<<<NULL>>>";
   } else {
     {
-      ColorScope Color(OS, ShowColors, ASTDumpColor::Stmt);
+      ColorScope Color(OS, ShowColors, StmtColor);
       OS << Target->getStmtClassName();
     }
     dumpPointer(Target);
@@ -1522,7 +1522,7 @@ void TextNodeDumper::VisitCXXOperatorCallExpr(const CXXOperatorCallExpr *Node) {
 void TextNodeDumper::VisitCastExpr(const CastExpr *Node) {
   OS << " <";
   {
-    ColorScope Color(OS, ShowColors, ASTDumpColor::Cast);
+    ColorScope Color(OS, ShowColors, CastColor);
     OS << Node->getCastKindName();
   }
   dumpBasePath(OS, Node);
@@ -1584,7 +1584,7 @@ void TextNodeDumper::VisitUnresolvedLookupExpr(
 
 void TextNodeDumper::VisitObjCIvarRefExpr(const ObjCIvarRefExpr *Node) {
   {
-    ColorScope Color(OS, ShowColors, ASTDumpColor::DeclKindName);
+    ColorScope Color(OS, ShowColors, DeclKindNameColor);
     OS << " " << Node->getDecl()->getDeclKindName() << "Decl";
   }
   OS << "='" << *Node->getDecl() << "'";
@@ -1603,28 +1603,28 @@ void TextNodeDumper::VisitPredefinedExpr(const PredefinedExpr *Node) {
 }
 
 void TextNodeDumper::VisitCharacterLiteral(const CharacterLiteral *Node) {
-  ColorScope Color(OS, ShowColors, ASTDumpColor::Value);
+  ColorScope Color(OS, ShowColors, ValueColor);
   OS << " " << Node->getValue();
 }
 
 void TextNodeDumper::VisitIntegerLiteral(const IntegerLiteral *Node) {
   bool isSigned = Node->getType()->isSignedIntegerType();
-  ColorScope Color(OS, ShowColors, ASTDumpColor::Value);
+  ColorScope Color(OS, ShowColors, ValueColor);
   OS << " " << toString(Node->getValue(), 10, isSigned);
 }
 
 void TextNodeDumper::VisitFixedPointLiteral(const FixedPointLiteral *Node) {
-  ColorScope Color(OS, ShowColors, ASTDumpColor::Value);
+  ColorScope Color(OS, ShowColors, ValueColor);
   OS << " " << Node->getValueAsString(/*Radix=*/10);
 }
 
 void TextNodeDumper::VisitFloatingLiteral(const FloatingLiteral *Node) {
-  ColorScope Color(OS, ShowColors, ASTDumpColor::Value);
+  ColorScope Color(OS, ShowColors, ValueColor);
   OS << " " << Node->getValueAsApproximateDouble();
 }
 
 void TextNodeDumper::VisitStringLiteral(const StringLiteral *Str) {
-  ColorScope Color(OS, ShowColors, ASTDumpColor::Value);
+  ColorScope Color(OS, ShowColors, ValueColor);
   OS << " ";
   Str->outputString(OS);
 }
@@ -2411,7 +2411,7 @@ void TextNodeDumper::VisitLifetimeExtendedTemporaryDecl(
   dumpBareDeclRef(D->getExtendingDecl());
   OS << " mangling ";
   {
-    ColorScope Color(OS, ShowColors, ASTDumpColor::Value);
+    ColorScope Color(OS, ShowColors, ValueColor);
     OS << D->getManglingNumber();
   }
 }
@@ -2573,12 +2573,12 @@ void TextNodeDumper::VisitOMPRequiresDecl(const OMPRequiresDecl *D) {
   for (const auto *C : D->clauselists()) {
     AddChild([=] {
       if (!C) {
-        ColorScope Color(OS, ShowColors, ASTDumpColor::Null);
+        ColorScope Color(OS, ShowColors, NullColor);
         OS << "<<<NULL>>> OMPClause";
         return;
       }
       {
-        ColorScope Color(OS, ShowColors, ASTDumpColor::Attr);
+        ColorScope Color(OS, ShowColors, AttrColor);
         StringRef ClauseName(
             llvm::omp::getOpenMPClauseName(C->getClauseKind()));
         OS << "OMP" << ClauseName.substr(/*Start=*/0, /*N=*/1).upper()
@@ -2644,7 +2644,7 @@ void TextNodeDumper::VisitCXXRecordDecl(const CXXRecordDecl *D) {
 
   AddChild([=] {
     {
-      ColorScope Color(OS, ShowColors, ASTDumpColor::DeclKindName);
+      ColorScope Color(OS, ShowColors, DeclKindNameColor);
       OS << "DefinitionData";
     }
 #define FLAG(fn, name)                                                         \
@@ -2675,7 +2675,7 @@ void TextNodeDumper::VisitCXXRecordDecl(const CXXRecordDecl *D) {
 
     AddChild([=] {
       {
-        ColorScope Color(OS, ShowColors, ASTDumpColor::DeclKindName);
+        ColorScope Color(OS, ShowColors, DeclKindNameColor);
         OS << "DefaultConstructor";
       }
       FLAG(hasDefaultConstructor, exists);
@@ -2689,7 +2689,7 @@ void TextNodeDumper::VisitCXXRecordDecl(const CXXRecordDecl *D) {
 
     AddChild([=] {
       {
-        ColorScope Color(OS, ShowColors, ASTDumpColor::DeclKindName);
+        ColorScope Color(OS, ShowColors, DeclKindNameColor);
         OS << "CopyConstructor";
       }
       FLAG(hasSimpleCopyConstructor, simple);
@@ -2707,7 +2707,7 @@ void TextNodeDumper::VisitCXXRecordDecl(const CXXRecordDecl *D) {
 
     AddChild([=] {
       {
-        ColorScope Color(OS, ShowColors, ASTDumpColor::DeclKindName);
+        ColorScope Color(OS, ShowColors, DeclKindNameColor);
         OS << "MoveConstructor";
       }
       FLAG(hasMoveConstructor, exists);
@@ -2724,7 +2724,7 @@ void TextNodeDumper::VisitCXXRecordDecl(const CXXRecordDecl *D) {
 
     AddChild([=] {
       {
-        ColorScope Color(OS, ShowColors, ASTDumpColor::DeclKindName);
+        ColorScope Color(OS, ShowColors, DeclKindNameColor);
         OS << "CopyAssignment";
       }
       FLAG(hasSimpleCopyAssignment, simple);
@@ -2739,7 +2739,7 @@ void TextNodeDumper::VisitCXXRecordDecl(const CXXRecordDecl *D) {
 
     AddChild([=] {
       {
-        ColorScope Color(OS, ShowColors, ASTDumpColor::DeclKindName);
+        ColorScope Color(OS, ShowColors, DeclKindNameColor);
         OS << "MoveAssignment";
       }
       FLAG(hasMoveAssignment, exists);
@@ -2753,7 +2753,7 @@ void TextNodeDumper::VisitCXXRecordDecl(const CXXRecordDecl *D) {
 
     AddChild([=] {
       {
-        ColorScope Color(OS, ShowColors, ASTDumpColor::DeclKindName);
+        ColorScope Color(OS, ShowColors, DeclKindNameColor);
         OS << "Destructor";
       }
       FLAG(hasSimpleDestructor, simple);

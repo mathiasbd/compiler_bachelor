@@ -271,8 +271,6 @@ void CIRGenFunction::LexicalScope::cleanup() {
     // Leverage and defers to RunCleanupsScope's dtor and scope handling.
     applyCleanup();
 
-    mlir::Block *currentBlock = builder.getBlock();
-
     // If we now have one after `applyCleanup`, hook it up properly.
     if (!cleanupBlock && localScope->getCleanupBlock(builder)) {
       cleanupBlock = localScope->getCleanupBlock(builder);
@@ -312,7 +310,7 @@ void CIRGenFunction::LexicalScope::cleanup() {
     // End of any local scope != function
     // Ternary ops have to deal with matching arms for yielding types
     // and do return a value, it must do its own cir.yield insertion.
-    if (!localScope->isTernary() && !currentBlock->mightHaveTerminator()) {
+    if (!localScope->isTernary() && !insPt->mightHaveTerminator()) {
       !retVal ? cir::YieldOp::create(builder, localScope->endLoc)
               : cir::YieldOp::create(builder, localScope->endLoc, retVal);
     }
@@ -387,30 +385,6 @@ static bool mayDropFunctionReturn(const ASTContext &astContext,
   return returnType.isTriviallyCopyableType(astContext);
 }
 
-static bool previousOpIsNonYieldingCleanup(mlir::Block *block) {
-  if (block->empty())
-    return false;
-  mlir::Operation *op = &block->back();
-  auto cleanupScopeOp = mlir::dyn_cast<cir::CleanupScopeOp>(op);
-  if (!cleanupScopeOp)
-    return false;
-
-  // Check whether the body region of the cleanup scope exits via cir.yield.
-  // Exits via cir.return or cir.goto do not fall through to the operation
-  // following the cleanup scope, and exits via break, continue, and resume
-  // are not expected here.
-  for (mlir::Block &bodyBlock : cleanupScopeOp.getBodyRegion()) {
-    if (bodyBlock.mightHaveTerminator()) {
-      if (mlir::isa<cir::YieldOp>(bodyBlock.getTerminator()))
-        return false;
-      assert(!mlir::isa<cir::BreakOp>(bodyBlock.getTerminator()) &&
-             !mlir::isa<cir::ContinueOp>(bodyBlock.getTerminator()) &&
-             !mlir::isa<cir::ResumeOp>(bodyBlock.getTerminator()));
-    }
-  }
-  return true;
-}
-
 void CIRGenFunction::LexicalScope::emitImplicitReturn() {
   CIRGenBuilderTy &builder = cgf.getBuilder();
   LexicalScope *localScope = cgf.curLexScope;
@@ -424,8 +398,7 @@ void CIRGenFunction::LexicalScope::emitImplicitReturn() {
   // return.
   if (cgf.getLangOpts().CPlusPlus && !fd->hasImplicitReturnZero() &&
       !cgf.sawAsmBlock && !fd->getReturnType()->isVoidType() &&
-      builder.getInsertionBlock() &&
-      !previousOpIsNonYieldingCleanup(builder.getInsertionBlock())) {
+      builder.getInsertionBlock()) {
     bool shouldEmitUnreachable =
         cgf.cgm.getCodeGenOpts().StrictReturn ||
         !mayDropFunctionReturn(fd->getASTContext(), fd->getReturnType());
@@ -867,9 +840,7 @@ void CIRGenFunction::emitDestructorBody(FunctionArgList &args) {
   // in fact emit references to them from other compilations, so emit them
   // as functions containing a trap instruction.
   if (dtorType != Dtor_Base && dtor->getParent()->isAbstract()) {
-    SourceLocation loc =
-        dtor->hasBody() ? dtor->getBody()->getBeginLoc() : dtor->getLocation();
-    emitTrap(getLoc(loc), true);
+    cgm.errorNYI(dtor->getSourceRange(), "abstract base class destructors");
     return;
   }
 
@@ -1098,14 +1069,10 @@ LValue CIRGenFunction::emitLValue(const Expr *e) {
     return emitLValue(cast<GenericSelectionExpr>(e)->getResultExpr());
   case Expr::DeclRefExprClass:
     return emitDeclRefLValue(cast<DeclRefExpr>(e));
-  case Expr::ImplicitCastExprClass:
   case Expr::CStyleCastExprClass:
   case Expr::CXXStaticCastExprClass:
   case Expr::CXXDynamicCastExprClass:
-  case Expr::CXXReinterpretCastExprClass:
-  case Expr::CXXConstCastExprClass:
-    // TODO(cir): The above list is missing CXXFunctionalCastExprClass,
-    // CXXAddrSpaceCastExprClass, and ObjCBridgedCastExprClass.
+  case Expr::ImplicitCastExprClass:
     return emitCastLValue(cast<CastExpr>(e));
   case Expr::MaterializeTemporaryExprClass:
     return emitMaterializeTemporaryExpr(cast<MaterializeTemporaryExpr>(e));
@@ -1113,8 +1080,6 @@ LValue CIRGenFunction::emitLValue(const Expr *e) {
     return emitOpaqueValueLValue(cast<OpaqueValueExpr>(e));
   case Expr::ChooseExprClass:
     return emitLValue(cast<ChooseExpr>(e)->getChosenSubExpr());
-  case Expr::SubstNonTypeTemplateParmExprClass:
-    return emitLValue(cast<SubstNonTypeTemplateParmExpr>(e)->getReplacement());
   }
 }
 
@@ -1199,10 +1164,9 @@ void CIRGenFunction::CIRGenFPOptionsRAII::ConstructorHelper(
   // TODO(cir): create guard to restore fast math configurations.
   assert(!cir::MissingFeatures::fastMathGuard());
 
-  [[maybe_unused]] llvm::RoundingMode newRoundingBehavior =
-      fpFeatures.getRoundingMode();
+  llvm::RoundingMode newRoundingBehavior = fpFeatures.getRoundingMode();
   // TODO(cir): override rounding behaviour once FM configs are guarded.
-  [[maybe_unused]] llvm::fp::ExceptionBehavior newExceptionBehavior =
+  llvm::fp::ExceptionBehavior newExceptionBehavior =
       toConstrainedExceptMd(static_cast<LangOptions::FPExceptionModeKind>(
           fpFeatures.getExceptionMode()));
   // TODO(cir): override exception behaviour once FM configs are guarded.

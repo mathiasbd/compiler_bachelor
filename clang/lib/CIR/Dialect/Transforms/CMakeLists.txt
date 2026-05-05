@@ -9,7 +9,6 @@ add_clang_library(MLIRCIRTransforms
   HoistAllocas.cpp
   LoweringPrepare.cpp
   GotoSolver.cpp
-  IdiomRecognizer.cpp
 
   DEPENDS
   MLIRCIRPassIncGen

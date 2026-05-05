@@ -81,8 +81,8 @@ public:
   void emitRethrow(CIRGenFunction &cgf, bool isNoReturn) override;
   void emitThrow(CIRGenFunction &cgf, const CXXThrowExpr *e) override;
 
-  void emitBeginCatch(CIRGenFunction &cgf, const CXXCatchStmt *catchStmt,
-                      mlir::Value ehToken) override;
+  void emitBeginCatch(CIRGenFunction &cgf,
+                      const CXXCatchStmt *catchStmt) override;
 
   bool useThunkForDtorVariant(const CXXDestructorDecl *dtor,
                               CXXDtorType dt) const override {
@@ -2318,42 +2318,45 @@ namespace {
 ///     exception type might have a throwing destructor, even if the
 ///     caught type's destructor is trivial or nothrow.
 struct CallEndCatch final : EHScopeStack::Cleanup {
-  CallEndCatch(bool mightThrow, mlir::Value catchToken)
-      : mightThrow(mightThrow), catchToken(catchToken) {}
+  CallEndCatch(bool mightThrow) : mightThrow(mightThrow) {}
   bool mightThrow;
-  mlir::Value catchToken;
 
   void emit(CIRGenFunction &cgf, Flags flags) override {
+    if (!mightThrow) {
+      // Traditional LLVM codegen would emit a call to __cxa_end_catch
+      // here. For CIR, just let it pass since the cleanup is going
+      // to be emitted on a later pass when lowering the catch region.
+      // CGF.EmitNounwindRuntimeCall(getEndCatchFn(CGF.CGM));
+      cir::YieldOp::create(cgf.getBuilder(), *cgf.currSrcLoc);
+      return;
+    }
+
     // Traditional LLVM codegen would emit a call to __cxa_end_catch
     // here. For CIR, just let it pass since the cleanup is going
     // to be emitted on a later pass when lowering the catch region.
     // CGF.EmitRuntimeCallOrTryCall(getEndCatchFn(CGF.CGM));
-    cir::EndCatchOp::create(cgf.getBuilder(), *cgf.currSrcLoc, catchToken);
-    cir::YieldOp::create(cgf.getBuilder(), *cgf.currSrcLoc);
+    if (!cgf.getBuilder().getBlock()->mightHaveTerminator())
+      cir::YieldOp::create(cgf.getBuilder(), *cgf.currSrcLoc);
   }
 };
 } // namespace
 
-static mlir::Value callBeginCatch(CIRGenFunction &cgf, mlir::Value ehToken,
-                                  mlir::Type exnPtrTy, bool endMightThrow) {
-  auto catchTokenTy = cir::CatchTokenType::get(cgf.getBuilder().getContext());
-  auto beginCatch = cir::BeginCatchOp::create(cgf.getBuilder(),
-                                              cgf.getBuilder().getUnknownLoc(),
-                                              catchTokenTy, exnPtrTy, ehToken);
+static mlir::Value callBeginCatch(CIRGenFunction &cgf, mlir::Type paramTy,
+                                  bool endMightThrow) {
+  auto catchParam = cir::CatchParamOp::create(
+      cgf.getBuilder(), cgf.getBuilder().getUnknownLoc(), paramTy);
 
   cgf.ehStack.pushCleanup<CallEndCatch>(
       NormalAndEHCleanup,
-      endMightThrow && !cgf.cgm.getLangOpts().AssumeNothrowExceptionDtor,
-      beginCatch.getCatchToken());
+      endMightThrow && !cgf.cgm.getLangOpts().AssumeNothrowExceptionDtor);
 
-  return beginCatch.getExnPtr();
+  return catchParam.getParam();
 }
 
 /// A "special initializer" callback for initializing a catch
 /// parameter during catch initialization.
-static void initCatchParam(CIRGenFunction &cgf, mlir::Value ehToken,
-                           const VarDecl &catchParam, Address paramAddr,
-                           SourceLocation loc) {
+static void initCatchParam(CIRGenFunction &cgf, const VarDecl &catchParam,
+                           Address paramAddr, SourceLocation loc) {
   CanQualType catchType =
       cgf.cgm.getASTContext().getCanonicalType(catchParam.getType());
   mlir::Type cirCatchTy = cgf.convertTypeForMem(catchType);
@@ -2373,7 +2376,7 @@ static void initCatchParam(CIRGenFunction &cgf, mlir::Value ehToken,
     // the pointer by value.
     if (catchType->hasPointerRepresentation()) {
       mlir::Value catchParam =
-          callBeginCatch(cgf, ehToken, cirCatchTy, /*endMightThrow=*/false);
+          callBeginCatch(cgf, cirCatchTy, /*endMightThrow=*/false);
       switch (catchType.getQualifiers().getObjCLifetime()) {
       case Qualifiers::OCL_Strong:
         cgf.cgm.errorNYI(loc,
@@ -2401,7 +2404,7 @@ static void initCatchParam(CIRGenFunction &cgf, mlir::Value ehToken,
     // Otherwise, it returns a pointer into the exception object.
     mlir::Type cirCatchTy = cgf.convertTypeForMem(catchType);
     mlir::Value catchParam =
-        callBeginCatch(cgf, ehToken, cgf.getBuilder().getPointerTo(cirCatchTy),
+        callBeginCatch(cgf, cgf.getBuilder().getPointerTo(cirCatchTy),
                        /*endMightThrow=*/false);
     LValue srcLV = cgf.makeNaturalAlignAddrLValue(catchParam, catchType);
     LValue destLV = cgf.makeAddrLValue(paramAddr, catchType);
@@ -2429,8 +2432,7 @@ static void initCatchParam(CIRGenFunction &cgf, mlir::Value ehToken,
 /// Begins a catch statement by initializing the catch variable and
 /// calling __cxa_begin_catch.
 void CIRGenItaniumCXXABI::emitBeginCatch(CIRGenFunction &cgf,
-                                         const CXXCatchStmt *catchStmt,
-                                         mlir::Value ehToken) {
+                                         const CXXCatchStmt *catchStmt) {
   // We have to be very careful with the ordering of cleanups here:
   //   C++ [except.throw]p4:
   //     The destruction [of the exception temporary] occurs
@@ -2456,7 +2458,7 @@ void CIRGenItaniumCXXABI::emitBeginCatch(CIRGenFunction &cgf,
 
   VarDecl *catchParam = catchStmt->getExceptionDecl();
   if (!catchParam) {
-    callBeginCatch(cgf, ehToken, cgf.getBuilder().getVoidPtrTy(),
+    callBeginCatch(cgf, cgf.getBuilder().getVoidPtrTy(),
                    /*endMightThrow=*/true);
     return;
   }
@@ -2483,7 +2485,7 @@ void CIRGenItaniumCXXABI::emitBeginCatch(CIRGenFunction &cgf,
 
   CIRGenFunction::AutoVarEmission var =
       cgf.emitAutoVarAlloca(*catchParam, getCatchParamAllocaIP());
-  initCatchParam(cgf, ehToken, *catchParam, var.getObjectAddress(cgf),
+  initCatchParam(cgf, *catchParam, var.getObjectAddress(cgf),
                  catchStmt->getBeginLoc());
   cgf.emitAutoVarCleanups(var);
 }

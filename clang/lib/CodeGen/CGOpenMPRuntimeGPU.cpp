@@ -1816,6 +1816,8 @@ CGOpenMPRuntimeGPU::translateParameter(const FieldDecl *FD,
   }
   ArgType = CGM.getContext().getPointerType(PointeeTy);
   QC.addRestrict();
+  enum { NVPTX_local_addr = 5 };
+  QC.addAddressSpace(getLangASFromTargetAS(NVPTX_local_addr));
   ArgType = QC.apply(CGM.getContext(), ArgType);
   if (isa<ImplicitParamDecl>(NativeParam))
     return ImplicitParamDecl::Create(
@@ -2377,7 +2379,6 @@ void CGOpenMPRuntimeGPU::processRequiresDirective(const OMPRequiresDecl *D) {
       case OffloadArch::GFX1201:
       case OffloadArch::GFX1250:
       case OffloadArch::GFX1251:
-      case OffloadArch::GFX12_5_GENERIC:
       case OffloadArch::GFX1310:
       case OffloadArch::AMDGCNSPIRV:
       case OffloadArch::Generic:

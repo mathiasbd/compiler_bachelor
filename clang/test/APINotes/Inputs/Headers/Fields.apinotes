@@ -4,7 +4,6 @@ Tags:
 - Name: IntWrapper
   Fields:
   - Name: value
-    Type: ValueType
     Availability: none
     AvailabilityMsg: "oh no"
 - Name: Outer

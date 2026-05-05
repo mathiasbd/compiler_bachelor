@@ -87,7 +87,7 @@ public:
       // Note that the first level gets no prefix.
       {
         OS << '\n';
-        ColorScope Color(OS, ShowColors, ASTDumpColor::Indent);
+        ColorScope Color(OS, ShowColors, IndentColor);
         OS << Prefix << (IsLastChild ? '`' : '|') << '-';
         if (!Label.empty())
           OS << Label << ": ";

@@ -1982,8 +1982,7 @@ void Parser::HandlePragmaAttribute() {
   if ((Tok.is(tok::l_square) && NextToken().is(tok::l_square)) ||
       Tok.isRegularKeywordAttribute()) {
     // Parse the CXX11 style attribute.
-    SourceLocation EndLoc = Tok.getLocation();
-    ParseCXX11AttributeSpecifier(Attrs, &EndLoc);
+    ParseCXX11AttributeSpecifier(Attrs);
   } else if (Tok.is(tok::kw___attribute)) {
     ConsumeToken();
     if (ExpectAndConsume(tok::l_paren, diag::err_expected_lparen_after,

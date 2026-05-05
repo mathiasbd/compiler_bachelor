@@ -12,8 +12,6 @@
 
 #include "CIRGenCXXABI.h"
 #include "CIRGenFunction.h"
-#include "mlir/IR/Block.h"
-#include "mlir/IR/Location.h"
 
 #include "clang/CIR/MissingFeatures.h"
 #include "llvm/Support/SaveAndRestore.h"
@@ -332,21 +330,19 @@ mlir::LogicalResult CIRGenFunction::emitCXXTryStmt(const CXXTryStmt &s) {
         mlir::OpBuilder::InsertionGuard guard(b);
         bool hasCatchAll = false;
         unsigned numHandlers = s.getNumHandlers();
-        mlir::Type ehTokenTy = cir::EhTokenType::get(&getMLIRContext());
         for (unsigned i = 0; i != numHandlers; ++i) {
           const CXXCatchStmt *catchStmt = s.getHandler(i);
           if (!catchStmt->getExceptionDecl())
             hasCatchAll = true;
           mlir::Region *region = result.addRegion();
-          builder.createBlock(region, /*insertPt=*/{}, {ehTokenTy}, {loc});
+          builder.createBlock(region);
           addCatchHandlerAttr(catchStmt, handlerAttrs);
         }
         if (!hasCatchAll) {
           // Create unwind region.
           mlir::Region *region = result.addRegion();
-          mlir::Block *unwindBlock =
-              builder.createBlock(region, /*insertPt=*/{}, {ehTokenTy}, {loc});
-          cir::ResumeOp::create(builder, loc, unwindBlock->getArgument(0));
+          builder.createBlock(region);
+          cir::ResumeOp::create(builder, loc);
           handlerAttrs.push_back(cir::UnwindAttr::get(&getMLIRContext()));
         }
       });
@@ -365,13 +361,9 @@ mlir::LogicalResult CIRGenFunction::emitCXXTryStmt(const CXXTryStmt &s) {
   for (unsigned i = 0; i != numHandlers; ++i) {
     const CXXCatchStmt *catchStmt = s.getHandler(i);
     mlir::Region *handler = &tryOp.getHandlerRegions()[i];
-    mlir::Location handlerLoc = getLoc(catchStmt->getCatchLoc());
 
     mlir::OpBuilder::InsertionGuard guard(builder);
     builder.setInsertionPointToStart(&handler->front());
-
-    // Get the !cir.eh_token block argument from the handler region.
-    mlir::Value ehToken = handler->front().getArgument(0);
 
     // Enter a cleanup scope, including the catch variable and the
     // end-catch.
@@ -380,7 +372,7 @@ mlir::LogicalResult CIRGenFunction::emitCXXTryStmt(const CXXTryStmt &s) {
     // Initialize the catch variable.
     // TODO(cir): Move this out of CXXABI.
     assert(!cir::MissingFeatures::currentFuncletPad());
-    cgm.getCXXABI().emitBeginCatch(*this, catchStmt, ehToken);
+    cgm.getCXXABI().emitBeginCatch(*this, catchStmt);
 
     // Emit the PGO counter increment.
     assert(!cir::MissingFeatures::incrementProfileCounter());
@@ -399,14 +391,6 @@ mlir::LogicalResult CIRGenFunction::emitCXXTryStmt(const CXXTryStmt &s) {
 
     // Fall out through the catch cleanups.
     handlerScope.forceCleanup();
-
-    mlir::Block *block = &handler->getBlocks().back();
-    if (block->empty() ||
-        !block->back().hasTrait<mlir::OpTrait::IsTerminator>()) {
-      mlir::OpBuilder::InsertionGuard guard(builder);
-      builder.setInsertionPointToEnd(block);
-      builder.createYield(handlerLoc);
-    }
   }
 
   return mlir::success();

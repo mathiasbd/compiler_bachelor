@@ -10897,23 +10897,26 @@ def warn_dangling_reference_captured_by_unknown : Warning<
    "the full-expression">, InGroup<DanglingCapture>;
 
 // Diagnostics based on the Lifetime safety analysis.
-def warn_lifetime_safety_use_after_scope : Warning<
+def warn_lifetime_safety_loan_expires_permissive : Warning<
    "object whose reference is captured does not live long enough">,
-   InGroup<LifetimeSafetyUseAfterScope>, DefaultIgnore;
-def warn_lifetime_safety_use_after_scope_moved : Warning<
+   InGroup<LifetimeSafetyPermissive>, DefaultIgnore;
+def warn_lifetime_safety_loan_expires_strict : Warning<
+   "object whose reference is captured may not live long enough">,
+   InGroup<LifetimeSafetyStrict>, DefaultIgnore;
+def warn_lifetime_safety_loan_expires_moved_strict : Warning<
    "object whose reference is captured may not live long enough. "
    "This could be false positive as the storage may have been moved later">,
-   InGroup<LifetimeSafetyUseAfterScopeMoved>, DefaultIgnore;
+   InGroup<LifetimeSafetyStrict>, DefaultIgnore;
 
-def warn_lifetime_safety_return_stack_addr
+def warn_lifetime_safety_return_stack_addr_permissive
     : Warning<"address of stack memory is returned later">,
-      InGroup<LifetimeSafetyReturnStackAddr>,
+      InGroup<LifetimeSafetyPermissive>,
       DefaultIgnore;
-def warn_lifetime_safety_return_stack_addr_moved
+def warn_lifetime_safety_return_stack_addr_moved_strict
     : Warning<"address of stack memory may be returned later. "
       "This could be false positive as the storage may have been moved. "
       "Consider moving first and then aliasing later to resolve the issue">,
-      InGroup<LifetimeSafetyReturnStackAddrMoved>,
+      InGroup<LifetimeSafetyStrict>,
       DefaultIgnore;
 
 def warn_lifetime_safety_invalidation
@@ -10929,7 +10932,7 @@ def warn_lifetime_safety_dangling_field_moved
     : Warning<"address of stack memory escapes to a field. "
       "This could be a false positive as the storage may have been moved. "
       "Consider moving first and then aliasing later to resolve the issue">,
-      InGroup<LifetimeSafetyDanglingFieldMoved>,
+      InGroup<LifetimeSafetyDanglingFieldStrict>,
       DefaultIgnore;
 
 def note_lifetime_safety_used_here : Note<"later used here">;
@@ -12622,10 +12625,6 @@ def err_omp_transparent_invalid_value : Error<"invalid value for transparent cla
   " expected one of: omp_not_impex, omp_import, omp_export, omp_impex">;
 def err_omp_transparent_invalid_type : Error<
   "transparent clause cannot be applied to type: %0">;
-def err_omp_num_teams_multi_expr_not_allowed
-    : Error<"only two expressions allowed in 'num_teams' clause">;
-def err_omp_num_teams_lower_bound_larger
-    : Error<"lower bound is greater than upper bound in 'num_teams' clause">;
 } // end of OpenMP category
 
 let CategoryName = "Related Result Type Issue" in {

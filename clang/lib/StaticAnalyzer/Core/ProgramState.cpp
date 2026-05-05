@@ -531,13 +531,14 @@ AnalysisManager& ProgramState::getAnalysisManager() const {
 // Generic Data Map.
 //===----------------------------------------------------------------------===//
 
-void *const *ProgramState::FindGDM(const void *K) const {
+void *const* ProgramState::FindGDM(void *K) const {
   return GDM.lookup(K);
 }
 
-void *ProgramStateManager::FindGDMContext(
-    const void *K, void *(*CreateContext)(llvm::BumpPtrAllocator &),
-    void (*DeleteContext)(void *)) {
+void*
+ProgramStateManager::FindGDMContext(void *K,
+                               void *(*CreateContext)(llvm::BumpPtrAllocator&),
+                               void (*DeleteContext)(void*)) {
 
   std::pair<void*, void (*)(void*)>& p = GDMContexts[K];
   if (!p.first) {
@@ -548,8 +549,7 @@ void *ProgramStateManager::FindGDMContext(
   return p.first;
 }
 
-ProgramStateRef ProgramStateManager::addGDM(ProgramStateRef St, const void *Key,
-                                            void *Data) {
+ProgramStateRef ProgramStateManager::addGDM(ProgramStateRef St, void *Key, void *Data){
   ProgramState::GenericDataMap M1 = St->getGDM();
   ProgramState::GenericDataMap M2 = GDMFactory.add(M1, Key, Data);
 
@@ -561,8 +561,7 @@ ProgramStateRef ProgramStateManager::addGDM(ProgramStateRef St, const void *Key,
   return getPersistentState(NewSt);
 }
 
-ProgramStateRef ProgramStateManager::removeGDM(ProgramStateRef state,
-                                               const void *Key) {
+ProgramStateRef ProgramStateManager::removeGDM(ProgramStateRef state, void *Key) {
   ProgramState::GenericDataMap OldM = state->getGDM();
   ProgramState::GenericDataMap NewM = GDMFactory.remove(OldM, Key);
 

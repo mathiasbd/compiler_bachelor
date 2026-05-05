@@ -100,30 +100,32 @@ void Sema::checkFunctionDeclVerbatimLine(const BlockCommandComment *Comment) {
   if (!Info->IsFunctionDeclarationCommand)
     return;
 
-  std::optional<unsigned> DiagSelect;
+  unsigned DiagSelect;
   switch (Comment->getCommandID()) {
     case CommandTraits::KCI_function:
-      if (!isAnyFunctionDecl() && !isFunctionTemplateDecl())
-        DiagSelect = diag::CallableKind::Function;
+      DiagSelect = (!isAnyFunctionDecl() && !isFunctionTemplateDecl())? 1 : 0;
       break;
     case CommandTraits::KCI_functiongroup:
-      if (!isAnyFunctionDecl() && !isFunctionTemplateDecl())
-        DiagSelect = diag::CallableKind::FunctionGroup;
+      DiagSelect = (!isAnyFunctionDecl() && !isFunctionTemplateDecl())? 2 : 0;
       break;
     case CommandTraits::KCI_method:
-      DiagSelect = diag::CallableKind::Method;
+      DiagSelect = !isObjCMethodDecl() ? 3 : 0;
       break;
     case CommandTraits::KCI_methodgroup:
-      DiagSelect = diag::CallableKind::MethodGroup;
+      DiagSelect = !isObjCMethodDecl() ? 4 : 0;
       break;
     case CommandTraits::KCI_callback:
-      DiagSelect = diag::CallableKind::Callback;
+      DiagSelect = !isFunctionPointerVarDecl() ? 5 : 0;
+      break;
+    default:
+      DiagSelect = 0;
       break;
   }
   if (DiagSelect)
     Diag(Comment->getLocation(), diag::warn_doc_function_method_decl_mismatch)
-        << Comment->getCommandMarker() << (*DiagSelect) << (*DiagSelect)
-        << Comment->getSourceRange();
+    << Comment->getCommandMarker()
+    << (DiagSelect-1) << (DiagSelect-1)
+    << Comment->getSourceRange();
 }
 
 void Sema::checkContainerDeclVerbatimLine(const BlockCommandComment *Comment) {

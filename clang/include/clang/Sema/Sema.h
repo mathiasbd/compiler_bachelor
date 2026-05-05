@@ -5209,9 +5209,8 @@ public:
       return false;
     }
 
-    constexpr unsigned Limit = 1 << ParamIdx::IdxBitWidth;
-    unsigned IdxSource = IdxInt->getLimitedValue(Limit);
-    if (IdxSource < 1 || IdxSource == Limit ||
+    unsigned IdxSource = IdxInt->getLimitedValue(UINT_MAX);
+    if (IdxSource < 1 ||
         ((!IV || !CanIndexVariadicArguments) && IdxSource > NumParams)) {
       Diag(getAttrLoc(AI), diag::err_attribute_argument_out_of_bounds)
           << &AI << AttrArgNum << IdxExpr->getSourceRange();

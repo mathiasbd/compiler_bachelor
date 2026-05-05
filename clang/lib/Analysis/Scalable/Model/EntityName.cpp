@@ -33,9 +33,4 @@ EntityName EntityName::makeQualified(NestedBuildNamespace Namespace) const {
   return Copy;
 }
 
-llvm::raw_ostream &operator<<(llvm::raw_ostream &OS, const EntityName &EN) {
-  return OS << "EntityName(" << EN.USR << ", " << EN.Suffix << ", "
-            << EN.Namespace << ")";
-}
-
 } // namespace clang::ssaf
