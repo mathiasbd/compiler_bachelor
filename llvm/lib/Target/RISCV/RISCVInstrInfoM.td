@@ -30,14 +30,18 @@ def riscv_remuw : RVSDNode<"REMUW", SDT_RISCVIntBinOpW>;
 //===----------------------------------------------------------------------===//
 
 let Predicates = [HasStdExtZmmul] in {
+let isPseudo = 1, isCodeGenOnly = 1, hasSideEffects = 0, mayLoad = 0, mayStore = 0 in {
+    def MULHSU : Pseudo<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2), []>;
+    def MULHU : Pseudo<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2), []>;
+}
 def MUL     : ALU_rr<0b0000001, 0b000, "mul", Commutable=1>,
               Sched<[WriteIMul, ReadIMul, ReadIMul]>;
 def MULH    : ALU_rr<0b0000001, 0b001, "mulh", Commutable=1>,
               Sched<[WriteIMul, ReadIMul, ReadIMul]>;
-def MULHSU  : ALU_rr<0b0000001, 0b010, "mulhsu">,
-              Sched<[WriteIMul, ReadIMul, ReadIMul]>;
-def MULHU   : ALU_rr<0b0000001, 0b011, "mulhu", Commutable=1>,
-              Sched<[WriteIMul, ReadIMul, ReadIMul]>;
+// def MULHSU  : ALU_rr<0b0000001, 0b010, "mulhsu">,
+//               Sched<[WriteIMul, ReadIMul, ReadIMul]>;
+// def MULHU   : ALU_rr<0b0000001, 0b011, "mulhu", Commutable=1>,
+//               Sched<[WriteIMul, ReadIMul, ReadIMul]>;
 } // Predicates = [HasStdExtZmmul]
 
 let Predicates = [HasStdExtM] in {
@@ -74,8 +78,8 @@ def REMUW   : ALUW_rr<0b0000001, 0b111, "remuw">,
 let Predicates = [HasStdExtZmmul] in {
 def : PatGprGpr<mul, MUL>;
 def : PatGprGpr<mulhs, MULH>;
-def : PatGprGpr<mulhu, MULHU>;
-def : PatGprGpr<riscv_mulhsu, MULHSU>;
+def : PatGprGpr<mulhu, MULH>;
+def : PatGprGpr<riscv_mulhsu, MULH>;
 } // Predicates = [HasStdExtZmmul]
 
 let Predicates = [HasStdExtM] in {
