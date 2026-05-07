@@ -120,16 +120,16 @@ bool RISCVTagged::runOnMachineFunction(MachineFunction &MF) {
       switch (MI.getOpcode()) {
       case RISCV::PSEUDO_CTUW_SAFETY:
       case RISCV::PSEUDO_CTSW_SAFETY: {
-        dbgs() << "Found a safety ct \n";
+        //dbgs() << "Found a safety ct \n";
         if (!MI.getOperand(1).isReg())
           break;
 
         Register Src = MI.getOperand(1).getReg();
         auto K = classifyDef(Src, MRI);
         if (K.first != ExtKind::Unknown) {
-          dbgs() << "Inside first if statement \n";
+          //dbgs() << "Inside first if statement \n";
           if((MI.getOpcode() == RISCV::PSEUDO_CTUW_SAFETY && K.first == ExtKind::Unsigned) || (MI.getOpcode() == RISCV::PSEUDO_CTSW_SAFETY && K.first == ExtKind::Signed)) {
-            dbgs() << "Inside the next \n";
+            //dbgs() << "Inside the next \n";
             Register Dst = MI.getOperand(0).getReg();
             Register Src = MI.getOperand(1).getReg();
 

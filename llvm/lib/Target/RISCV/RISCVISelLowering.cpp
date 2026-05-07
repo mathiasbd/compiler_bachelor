@@ -21630,7 +21630,7 @@ static bool isSignedUser(SDNode *User) {
 }
 
 static bool isTransparentUser(SDNode *User) {
-  dbgs() << "Inside isTransparentUser with: " << User->getOpcode() << "\n";
+  //dbgs() << "Inside isTransparentUser with: " << User->getOpcode() << "\n";
   switch (User->getOpcode()) {
   case ISD::ADD:
   case ISD::SUB:
