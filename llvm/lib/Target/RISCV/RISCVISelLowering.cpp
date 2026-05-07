@@ -7932,6 +7932,23 @@ RISCVTargetLowering::lowerXAndesBfHCvtBFloat16Store(SDValue Op,
       ST->getMemOperand());
 }
 
+// RISCVISelLowering.cpp (static helper)
+static unsigned getTagKind(bool Signed, unsigned WidthBits) {
+  if (!Signed) {
+    if (WidthBits == 8)
+      return 0;
+    if (WidthBits == 16)
+      return 1;
+    return 2; // 32
+  } else {
+    if (WidthBits == 8)
+      return 3;
+    if (WidthBits == 16)
+      return 4;
+    return 5; // 32
+  }
+}
+
 SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
                                             SelectionDAG &DAG) const { //For reference
   switch (Op.getOpcode()) {
@@ -8118,8 +8135,25 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
     return SDValue();
   case ISD::SIGN_EXTEND_INREG: {
     if (Op.getValueType().isScalarInteger()) {
-      return lowerSetTag(Op.getOperand(0), DAG, true, false);
+      EVT XLenVT = Subtarget.getXLenVT();
+      SDLoc DL(Op);
+
+      SDValue V = Op.getOperand(0);
+
+      EVT InRegVT = cast<VTSDNode>(Op.getOperand(1))->getVT();
+      unsigned W = InRegVT.getSizeInBits();
+
+      unsigned Kind = getTagKind(/*Signed=*/true, W);
+
+      SDValue K = DAG.getTargetConstant(Kind, DL, XLenVT);
+      SDValue Safety = DAG.getTargetConstant(0, DL, XLenVT);
+
+      if (V.getValueType() != XLenVT)
+        V = DAG.getNode(ISD::ANY_EXTEND, DL, XLenVT, V);
+
+      return DAG.getNode(RISCVISD::SET_TAG, DL, XLenVT, V, K, Safety);
     }
+
     return SDValue();
   }
   case ISD::SPLAT_VECTOR_PARTS:
@@ -14087,23 +14121,6 @@ SDValue RISCVTargetLowering::lowerToScalableOp(SDValue Op,
   SDValue ScalableRes =
       DAG.getNode(NewOpc, DL, ContainerVT, Ops, Op->getFlags());
   return convertFromScalableVector(VT, ScalableRes, DAG, Subtarget);
-}
-
-// RISCVISelLowering.cpp (static helper)
-static unsigned getTagKind(bool Signed, unsigned WidthBits) {
-  if (!Signed) {
-    if (WidthBits == 8)
-      return 0;
-    if (WidthBits == 16)
-      return 1;
-    return 2; // 32
-  } else {
-    if (WidthBits == 8)
-      return 3;
-    if (WidthBits == 16)
-      return 4;
-    return 5; // 32
-  }
 }
 
 // Lower to set tag specific instruction
