@@ -33,6 +33,8 @@ let Predicates = [HasStdExtZmmul] in {
 let isPseudo = 1, isCodeGenOnly = 1, hasSideEffects = 0, mayLoad = 0, mayStore = 0 in {
     def MULHSU : Pseudo<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2), []>;
     def MULHU : Pseudo<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2), []>;
+    def DIVU : Pseudo<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2), []>;
+    def REMU : Pseudo<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2), []>;
 }
 def MUL     : ALU_rr<0b0000001, 0b000, "mul", Commutable=1>,
               Sched<[WriteIMul, ReadIMul, ReadIMul]>;
@@ -47,12 +49,12 @@ def MULH    : ALU_rr<0b0000001, 0b001, "mulh", Commutable=1>,
 let Predicates = [HasStdExtM] in {
 def DIV     : ALU_rr<0b0000001, 0b100, "div">,
               Sched<[WriteIDiv, ReadIDiv, ReadIDiv]>;
-def DIVU    : ALU_rr<0b0000001, 0b101, "divu">,
-              Sched<[WriteIDiv, ReadIDiv, ReadIDiv]>;
+/*def DIVU    : ALU_rr<0b0000001, 0b101, "divu">,
+              Sched<[WriteIDiv, ReadIDiv, ReadIDiv]>;*/
 def REM     : ALU_rr<0b0000001, 0b110, "rem">,
               Sched<[WriteIRem, ReadIRem, ReadIRem]>;
-def REMU    : ALU_rr<0b0000001, 0b111, "remu">,
-              Sched<[WriteIRem, ReadIRem, ReadIRem]>;
+/*def REMU    : ALU_rr<0b0000001, 0b111, "remu">,
+              Sched<[WriteIRem, ReadIRem, ReadIRem]>;*/
 } // Predicates = [HasStdExtM]
 
 let Predicates = [HasStdExtZmmul, IsRV64], IsSignExtendingOpW = 1 in {
@@ -84,9 +86,9 @@ def : PatGprGpr<riscv_mulhsu, MULH>;
 
 let Predicates = [HasStdExtM] in {
 def : PatGprGpr<sdiv, DIV>;
-def : PatGprGpr<udiv, DIVU>;
+def : PatGprGpr<udiv, DIV>;
 def : PatGprGpr<srem, REM>;
-def : PatGprGpr<urem, REMU>;
+def : PatGprGpr<urem, REM>;
 } // Predicates = [HasStdExtM]
 
 // Select W instructions if only the lower 32-bits of the result are used.

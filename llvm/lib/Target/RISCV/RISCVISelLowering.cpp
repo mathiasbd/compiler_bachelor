@@ -1930,6 +1930,7 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
   setTargetDAGCombine(ISD::SRL);
   setTargetDAGCombine(ISD::SIGN_EXTEND_INREG);
   setTargetDAGCombine(ISD::LOAD);
+  setTargetDAGCombine({ISD::SDIV, ISD::UDIV, ISD::SREM, ISD::UREM});
   if (Subtarget.hasStdExtFOrZfinx())
     setTargetDAGCombine({ISD::FADD, ISD::FMAXNUM, ISD::FMINNUM, ISD::FMUL});
 
@@ -21509,7 +21510,8 @@ SDValue RISCVTargetLowering::performCastSignCombine(
     return DCI.DAG.getNode(ISD::SETCC, DL, VT, NewSrc, NewSrc2,
                            N->getOperand(2));
   }
-
+  case ISD::SDIV:
+  case ISD::SREM:
   case ISD::MULHS: {
     SDValue NewSrc = RetagSigned(Src);
     SDValue NewSrc2 = RetagSigned(Src2);
@@ -21589,7 +21591,8 @@ SDValue RISCVTargetLowering::performCastUnsignCombine(
     return DCI.DAG.getNode(ISD::SETCC, DL, VT, NewSrc, NewSrc2,
                            N->getOperand(2));
   }
-
+  case ISD::UDIV:
+  case ISD::UREM:
   case ISD::MULHU: {
     SDValue NewSrc = RetagUnsigned(Src);
     SDValue NewSrc2 = RetagUnsigned(Src2);
@@ -22032,13 +22035,34 @@ SDValue RISCVTargetLowering::PerformDAGCombine(
     if (SDValue V = combineOp_VLToVWOp_VL(N, DCI, Subtarget))
       return V;
     return performMULCombine(N, DAG, DCI, Subtarget);
-  case ISD::SDIV:
-  case ISD::UDIV:
-  case ISD::SREM:
-  case ISD::UREM:
+  case ISD::SDIV: {
+    if(SDValue V = performCastSignCombine(N, DCI)) {
+      return V;
+    }
+    if (SDValue V = combineBinOpOfZExt(N, DAG))
+        return V;
+  } break;
+  case ISD::UDIV: {
+    if(SDValue V = performCastUnsignCombine(N, DCI)) {
+      return V;
+    }
+    if (SDValue V = combineBinOpOfZExt(N, DAG))
+        return V;
+  } break;
+  case ISD::SREM: {
+    if(SDValue V = performCastSignCombine(N, DCI)) {
+      return V;
+    }
+    if (SDValue V = combineBinOpOfZExt(N, DAG))
+        return V;
+  } break;
+  case ISD::UREM: {
+    if(SDValue V = performCastUnsignCombine(N, DCI)) {
+      return V;
+    }
     if (SDValue V = combineBinOpOfZExt(N, DAG))
       return V;
-    break;
+  } break;
   case ISD::FMUL: {
     using namespace SDPatternMatch;
     SDLoc DL(N);
