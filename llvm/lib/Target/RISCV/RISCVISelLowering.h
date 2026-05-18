@@ -523,7 +523,7 @@ private:
                              int64_t ExtTrueVal) const;
 
   //Defining our lowering tag instruction
-  SDValue lowerSetTag(SDValue Op, SelectionDAG &DAG, bool Signed, bool isSafetyCheck) const;
+  SDValue lowerSetTag(SDValue Op, SelectionDAG &DAG, unsigned W, bool Signed, bool isSafetyCheck) const;
   SDValue lowerTagStore(SDValue Op, SelectionDAG &DAG) const;
 
   SDValue performCastSignCombine(SDNode *N, TargetLowering::DAGCombinerInfo &DCI) const;

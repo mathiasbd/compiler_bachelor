@@ -1931,6 +1931,7 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
   setTargetDAGCombine(ISD::SIGN_EXTEND_INREG);
   setTargetDAGCombine(ISD::LOAD);
   setTargetDAGCombine({ISD::SDIV, ISD::UDIV, ISD::SREM, ISD::UREM});
+  //setTargetDAGCombine(ISD::TRUNCATE);
   if (Subtarget.hasStdExtFOrZfinx())
     setTargetDAGCombine({ISD::FADD, ISD::FMAXNUM, ISD::FMINNUM, ISD::FMUL});
 
@@ -8105,7 +8106,7 @@ RISCVTargetLowering::LowerOperation(SDValue Op,
   case ISD::TRUNCATE:
   case ISD::TRUNCATE_SSAT_S:
   case ISD::TRUNCATE_USAT_U:
-    // Only custom-lower vector truncates
+    /* Only custom-lower vector truncates
     if (Op.getSimpleValueType().isVector())
       return lowerVectorTruncLike(Op, DAG);
     if (Op.getValueType().isScalarInteger()) {
@@ -8113,7 +8114,7 @@ RISCVTargetLowering::LowerOperation(SDValue Op,
       // dbgs() << "TRUNCATE src VT: " << Op.getOperand(0).getValueType() <<
       // "\n";
       return lowerSetTag(Op.getOperand(0), DAG, false, false);
-    }
+    }*/
     return SDValue();
   case ISD::ANY_EXTEND:
   case ISD::ZERO_EXTEND:
@@ -8123,7 +8124,14 @@ RISCVTargetLowering::LowerOperation(SDValue Op,
     if (Op.getValueType().isScalableVector())
       return lowerToScalableOp(Op, DAG);
     if (Op.getValueType().isScalarInteger()) {
-      return lowerSetTag(Op.getOperand(0), DAG, false, false);
+      SDValue Op0 = Op.getOperand(0);
+      unsigned W = Op.getValueType().getSizeInBits();
+
+      if(Op0.getOpcode() == ISD::TRUNCATE) {
+        return lowerSetTag(Op0, DAG, Op0.getValueType().getSizeInBits(), true, false);
+      }
+
+      return lowerSetTag(Op0, DAG, W, false, false);
     }
     return SDValue();
   case ISD::SIGN_EXTEND:
@@ -8133,7 +8141,14 @@ RISCVTargetLowering::LowerOperation(SDValue Op,
     if (Op.getValueType().isScalableVector())
       return lowerToScalableOp(Op, DAG);
     if (Op.getValueType().isScalarInteger()) {
-      return lowerSetTag(Op.getOperand(0), DAG, true, false);
+      SDValue Op0 = Op.getOperand(0);
+      unsigned W = Op.getValueType().getSizeInBits();
+
+      if(Op0.getOpcode() == ISD::TRUNCATE) {
+        return lowerSetTag(Op0, DAG, Op0.getValueType().getSizeInBits(), true, false);
+      }
+
+      return lowerSetTag(Op0, DAG, W, true, false);
     }
     return SDValue();
   case ISD::SIGN_EXTEND_INREG: {
@@ -14128,16 +14143,28 @@ SDValue RISCVTargetLowering::lowerToScalableOp(SDValue Op,
 
 // Lower to set tag specific instruction
 SDValue
-RISCVTargetLowering::lowerSetTag(SDValue V, SelectionDAG &DAG, bool Signed,
+RISCVTargetLowering::lowerSetTag(SDValue V, SelectionDAG &DAG, unsigned W, bool Signed,
                                  bool isSafetyCheck) const { // Reference
-  // dbgs() << "Inside lowersettag with: " << V.getOpcode() << " result: " <<
-  // V.getValueType() << "\n";
-  unsigned W = V.getValueType().getSizeInBits();
   unsigned Kind = getTagKind(Signed, W);
   EVT XLenVT = Subtarget.getXLenVT();
   SDLoc DL(V);
   SDValue K = DAG.getTargetConstant(Kind, DL, XLenVT);
   SDValue Safety = DAG.getTargetConstant(isSafetyCheck ? 1 : 0, DL, XLenVT);
+
+  /*if(Kind == 0) {
+    dbgs() << V.getNode()->getOperationName(&DAG) << "\n";
+    if(V.getOpcode() == ISD::ZERO_EXTEND) {
+      dbgs() << "Zero extend with V's valuetype being: " << W << " and signed being: " << Signed << "\n";
+    } else if(V.getOpcode() == ISD::SIGN_EXTEND_INREG) {
+      dbgs() << "SIGN_EXTEND_INREG called\n";
+    } else if(V.getOpcode() == ISD::SETCC) {
+      dbgs() << "SETCC called\n";
+    } else if(V.getOpcode() == ISD::SRL) {
+      dbgs() << "SRL was called\n";
+    } else {
+      dbgs() << "Something is called with this kind" << V.getOpcode() << "\n";
+    }
+  }*/
 
   if (V.getValueType() != XLenVT) {
     V = DAG.getNode(ISD::ANY_EXTEND, DL, XLenVT, V);
@@ -21490,7 +21517,7 @@ SDValue RISCVTargetLowering::performCastSignCombine(
 
     if (hasSignedTag(V))
       return V;
-    return lowerSetTag(V, DCI.DAG, true, true);
+    return lowerSetTag(V, DCI.DAG, V.getValueType().getSizeInBits(), true, true);
   };
 
   switch (N->getOpcode()) {
@@ -21529,7 +21556,7 @@ SDValue RISCVTargetLowering::performCastSignCombine(
 
       if (hasUnsignedTag(V))
         return V;
-      return lowerSetTag(V, DCI.DAG, false, true);
+      return lowerSetTag(V, DCI.DAG, V.getValueType().getSizeInBits(), false, true);
     };
 
     SDValue NewSrc = RetagSigned(Src);
@@ -21571,7 +21598,7 @@ SDValue RISCVTargetLowering::performCastUnsignCombine(
 
     if (hasUnsignedTag(V))
       return V;
-    return lowerSetTag(V, DCI.DAG, false, true);
+    return lowerSetTag(V, DCI.DAG, V.getValueType().getSizeInBits(), false, true);
   };
 
   switch (N->getOpcode()) {
@@ -21632,12 +21659,12 @@ SDValue RISCVTargetLowering::performCastBRCCCombine(
     if (WantSigned) {
       if (hasSignedTag(V))
         return V;
-      return lowerSetTag(V, DAG, true, true);
+      return lowerSetTag(V, DAG, V.getValueType().getSizeInBits(), true, true);
     }
 
     if (hasUnsignedTag(V))
       return V;
-    return lowerSetTag(V, DAG, false, true);
+    return lowerSetTag(V, DAG, V.getValueType().getSizeInBits(), false, true);
   };
 
   SDValue NewLHS = Retag(LHS);
