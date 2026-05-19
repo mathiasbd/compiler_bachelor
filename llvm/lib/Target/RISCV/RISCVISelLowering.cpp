@@ -8128,7 +8128,7 @@ RISCVTargetLowering::LowerOperation(SDValue Op,
       unsigned W = Op.getValueType().getSizeInBits();
 
       if(Op0.getOpcode() == ISD::TRUNCATE) {
-        return lowerSetTag(Op0, DAG, Op0.getValueType().getSizeInBits(), true, false);
+        return lowerSetTag(Op0, DAG, Op0.getValueType().getSizeInBits(), false, false);
       }
 
       return lowerSetTag(Op0, DAG, W, false, false);
