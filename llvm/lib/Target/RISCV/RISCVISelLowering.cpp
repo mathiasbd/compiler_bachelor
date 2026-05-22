@@ -1930,6 +1930,7 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
   setTargetDAGCombine(ISD::SRL);
   setTargetDAGCombine(ISD::SIGN_EXTEND_INREG);
   setTargetDAGCombine(ISD::LOAD);
+  setTargetDAGCombine({ISD::MULHU, ISD::MULHS});
   setTargetDAGCombine({ISD::SDIV, ISD::UDIV, ISD::SREM, ISD::UREM});
   //setTargetDAGCombine(ISD::TRUNCATE);
   if (Subtarget.hasStdExtFOrZfinx())
@@ -21552,7 +21553,7 @@ SDValue RISCVTargetLowering::performCastSignCombine(
   case RISCVISD::MULHSU: {
     auto RetagUnsigned = [&](SDValue V) -> SDValue {
       if (isa<ConstantSDNode>(V.getNode()))
-        return V;
+        return V; 
 
       if (hasUnsignedTag(V))
         return V;
@@ -21593,8 +21594,8 @@ SDValue RISCVTargetLowering::performCastUnsignCombine(
   SDValue Src2 = Op.getOperand(1);
 
   auto RetagUnsigned = [&](SDValue V) -> SDValue {
-    if (isa<ConstantSDNode>(V.getNode()))
-      return V;
+    /*if (isa<ConstantSDNode>(V.getNode()))
+      return V;*/
 
     if (hasUnsignedTag(V))
       return V;

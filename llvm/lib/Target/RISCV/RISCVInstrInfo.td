@@ -906,7 +906,7 @@ def SUB  : ALU_rr<0b0000000, 0b001, "sub">,
 //New Shift instruction
 def SL : ALU_rr<0b0000000, 0b101, "sl">,
           Sched<[WriteShiftReg, ReadShiftReg, ReadShiftReg]>;
-def SR : ALU_rr<0b0100000, 0b101, "sr">,
+def SR : ALU_rr<0b0000000, 0b011, "sr">,
           Sched<[WriteShiftReg, ReadShiftReg, ReadShiftReg]>;
 
 // Old implementation
