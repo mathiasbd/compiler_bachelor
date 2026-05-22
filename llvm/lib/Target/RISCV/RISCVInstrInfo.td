@@ -829,21 +829,13 @@ def LBU : Load_ri<0b100, "lbu">, Sched<[WriteLDB, ReadMemBase]>;
 def LHU : Load_ri<0b101, "lhu">, Sched<[WriteLDH, ReadMemBase]>;
 }
 
-def SB : Store_rri<0b000, "sb">,
+def SB : Store_rri<0b000, "st">,
            Sched<[WriteSTB, ReadStoreData, ReadMemBase]>;
 def SH : Store_rri<0b001, "sh">,
            Sched<[WriteSTH, ReadStoreData, ReadMemBase]>;
 def SW : Store_rri<0b010, "sw">,
            Sched<[WriteSTW, ReadStoreData, ReadMemBase]>;
 
-let mayStore = 1, mayLoad = 0, hasSideEffects = 0 in {
-  def TAGSTORE : RVInstS<
-      0b111, OPC_STORE,
-      (outs),
-      (ins GPR:$rs2, GPR:$rs1, simm12_lo:$imm12),
-      "st", "$rs2, ${imm12}(${rs1})"
-  >;
-}
 // ADDI isn't always rematerializable, but isReMaterializable will be used as
 // a hint which is verified in isReMaterializableImpl.
 let isReMaterializable = 1, isAsCheapAsAMove = 1 in

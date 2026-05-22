@@ -34,15 +34,14 @@ public:
 
         unsigned Opc = MI.getOpcode();
 
-        if (Opc != RISCV::SB &&
-            Opc != RISCV::SH &&
+        if (Opc != RISCV::SH &&
             Opc != RISCV::SW)
           continue;
 
         DebugLoc DL = MI.getDebugLoc();
 
         MachineInstrBuilder MIB =
-            BuildMI(MBB, MI, DL, TII->get(RISCV::TAGSTORE));
+            BuildMI(MBB, MI, DL, TII->get(RISCV::SB));
 
         MIB.add(MI.getOperand(0)); // stored value
         MIB.add(MI.getOperand(1)); // base address
