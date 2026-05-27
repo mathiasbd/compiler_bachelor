@@ -283,7 +283,7 @@ def XLenVecI32VT : ValueTypeByHwMode<[RV64],
                                      [v2i32]>;
 def XLenRI : RegInfoByHwMode<
       [RV32,              RV64],
-      [RegInfo<32,32,32>, RegInfo<64,64,64>]>;
+      [RegInfo<32,40,64>, RegInfo<64,64,64>]>;
 def YLenVT : ValueTypeByHwMode<[RV32, RV64], [c64, c128]>;
 def YLenRI : RegInfoByHwMode<[RV32, RV64], [RegInfo<64, 64, 64>,
                                             RegInfo<128, 128, 128>]>;

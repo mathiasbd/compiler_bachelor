@@ -151,7 +151,7 @@ static void emitSCSPrologue(MachineFunction &MF, MachineBasicBlock &MBB,
       .addReg(SCSPReg)
       .addImm(SlotSize)
       .setMIFlag(MachineInstr::FrameSetup);
-  BuildMI(MBB, MI, DL, TII->get(IsRV64 ? RISCV::SD : RISCV::SW))
+  BuildMI(MBB, MI, DL, TII->get(IsRV64 ? RISCV::SD : RISCV::STAG))
       .addReg(RAReg)
       .addReg(SCSPReg)
       .addImm(-SlotSize)
@@ -208,7 +208,7 @@ static void emitSCSEpilogue(MachineFunction &MF, MachineBasicBlock &MBB,
   // Load return address from shadow call stack
   // l[w|d]  ra, -[4|8](gp)
   // addi    gp, gp, -[4|8]
-  BuildMI(MBB, MI, DL, TII->get(IsRV64 ? RISCV::LD : RISCV::LW))
+  BuildMI(MBB, MI, DL, TII->get(IsRV64 ? RISCV::LD : RISCV::LTAG))
       .addReg(RAReg, RegState::Define)
       .addReg(SCSPReg)
       .addImm(-SlotSize)

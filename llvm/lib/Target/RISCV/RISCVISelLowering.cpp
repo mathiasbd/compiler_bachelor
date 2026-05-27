@@ -24934,8 +24934,40 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
       ArgValue = unpackF64OnRV32DSoftABI(DAG, Chain, VA, ArgLocs[++i], DL);
     } else if (VA.isRegLoc())
       ArgValue = unpackFromRegLoc(DAG, Chain, VA, DL, Ins[InsIdx], *this);
-    else
+    else if (VA.isMemLoc() &&
+            VA.getLocVT() == XLenVT &&
+            !VA.needsCustom() &&
+            (Ins[InsIdx].Flags.isSExt() || Ins[InsIdx].Flags.isZExt())) {
+      EVT MemVT = Ins[InsIdx].ArgVT; // <-- use ArgVT, not VT
+
+      if (MemVT == MVT::i8 || MemVT == MVT::i16) {
+        MachineFrameInfo &MFI = MF.getFrameInfo();
+
+        int FI = MFI.CreateFixedObject(
+            XLenInBytes,
+            VA.getLocMemOffset(),
+            /*IsImmutable=*/true);
+
+        SDValue FIN = DAG.getFrameIndex(FI, PtrVT);
+
+        ISD::LoadExtType ExtType =
+            Ins[InsIdx].Flags.isSExt() ? ISD::SEXTLOAD : ISD::ZEXTLOAD;
+
+        ArgValue = DAG.getExtLoad(
+            ExtType,
+            DL,
+            XLenVT,  // result type in register
+            Chain,
+            FIN,
+            MachinePointerInfo::getFixedStack(MF, FI),
+            MemVT);  // memory type: i8 or i16
+      } else {
+        ArgValue = unpackFromMemLoc(DAG, Chain, VA, DL, *this);
+      }
+    }
+    else {
       ArgValue = unpackFromMemLoc(DAG, Chain, VA, DL, *this);
+    }
 
     if (VA.getLocInfo() == CCValAssign::Indirect) {
       // If the original argument was split and passed by reference (e.g. i128

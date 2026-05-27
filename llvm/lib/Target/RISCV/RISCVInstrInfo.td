@@ -827,6 +827,7 @@ def LH  : Load_ri<0b001, "lh">, Sched<[WriteLDH, ReadMemBase]>;
 def LW  : Load_ri<0b010, "lw">, Sched<[WriteLDW, ReadMemBase]>;
 def LBU : Load_ri<0b100, "lbu">, Sched<[WriteLDB, ReadMemBase]>;
 def LHU : Load_ri<0b101, "lhu">, Sched<[WriteLDH, ReadMemBase]>;
+def LTAG : Load_ri<0b111, "ltag">;
 }
 
 def SB : Store_rri<0b000, "st">,
@@ -835,6 +836,7 @@ def SH : Store_rri<0b001, "sh">,
            Sched<[WriteSTH, ReadStoreData, ReadMemBase]>;
 def SW : Store_rri<0b010, "sw">,
            Sched<[WriteSTW, ReadStoreData, ReadMemBase]>;
+def STAG : Store_rri<0b111, "stag">;
 
 // ADDI isn't always rematerializable, but isReMaterializable will be used as
 // a hint which is verified in isReMaterializableImpl.
