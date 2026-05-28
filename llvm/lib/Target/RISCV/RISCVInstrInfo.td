@@ -758,7 +758,7 @@ class UnaryW_r<bits<12> imm12, bits<3> funct3, string opcodestr>
                    opcodestr, "$rd, $rs1">;
 
 // Define the structure of the tag instruction
-class TagInst<bits<7> funct7, string asm>
+class TagInst<bits<8> tag, string asm>
   : Instruction {
   let Namespace = "RISCV";
   let OutOperandList = (outs GPR:$rd);
@@ -771,8 +771,8 @@ class TagInst<bits<7> funct7, string asm>
 
   let Inst{6-0}   = 0b1111011;
   let Inst{11-7}  = rd;
-  let Inst{24-12} = 0;
-  let Inst{31-25} = funct7;
+  let Inst{19-12} = tag;
+  let Inst{31-20} = 0;
 
   let Size = 4;
   let hasSideEffects = 1;
@@ -998,13 +998,13 @@ def CSRRSI : CSR_ii<0b110, "csrrsi">;
 def CSRRCI : CSR_ii<0b111, "csrrci">;
 
 //Defining tag specific instructions
-def CTUB : TagInst<0b0000000, "ctub">;
-def CTUH : TagInst<0b0000001, "ctuh">;
-def CTUW : TagInst<0b0000010, "ctuw">;
+def CTUB : TagInst<0b00000000, "ctub">;
+def CTUH : TagInst<0b00000001, "ctuh">;
+def CTUW : TagInst<0b00000010, "ctuw">;
 
-def CTSB : TagInst<0b0000100, "ctsb">;
-def CTSH : TagInst<0b0000101, "ctsh">;
-def CTSW : TagInst<0b0000110, "ctsw">;
+def CTSB : TagInst<0b00000100, "ctsb">;
+def CTSH : TagInst<0b00000101, "ctsh">;
+def CTSW : TagInst<0b00000110, "ctsw">;
 
 // Pseudos that *model* the data dependency (rd tied to rs1)
 // and expand to the real encoding-only-rd instruction.
